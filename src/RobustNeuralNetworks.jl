@@ -54,6 +54,7 @@ include("ParameterTypes/contracting_ren.jl")
 include("ParameterTypes/general_ren.jl")
 include("ParameterTypes/lipschitz_ren.jl")
 include("ParameterTypes/passive_ren.jl")
+include("ParameterTypes/systemlevel_ren.jl")
 
 # LBDN
 include("LBDN/lbfn.jl")
@@ -73,6 +74,7 @@ export ContractingRENParams
 export GeneralRENParams
 export LipschitzRENParams
 export PassiveRENParams
+export SystemlevelRENParams
 
 export DiffREN
 export WrapREN

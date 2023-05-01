@@ -1,20 +1,20 @@
 mutable struct SystemlevelRENParams{T} <: AbstractRENParams{T}
     nl                          # Sector-bounded nonlinearity
-    nu::Int
+    nu::T
     nx::Int
     nv::Int
-    ny::Int
+    ny::T
     direct::DirectParams{T}
     αbar::T
-    A::Matrix{Float64}
-    B::Vector{Float64}
+    A::AbstractArray{Int}
+    B::AbstractArray{Int}
     y::Vector{T}
 end
 
 
 function SystemlevelRENParams{T}(
-    nu::Int, nx::Int, nv::Int, ny::Int,
-    A::Matrix{Float64}, B::Vector{Float64};
+    nx::Int, nv::Int,
+    A::AbstractArray{Int}, B::AbstractArray{Int};
     nl = Flux.relu, 
     αbar::T = T(1),
     init = :random,
@@ -24,7 +24,9 @@ function SystemlevelRENParams{T}(
     ϵ::T = T(1e-12), 
     rng::AbstractRNG = Random.GLOBAL_RNG
 ) where T
-
+    
+    nu = size(A,1)
+    ny = size(A,1)+size(B,2)
     y = glorot_normal(nx*size(A,1)+nx*size(B,2)+nv*size(B,2)+size(A,1)*size(B,2)+size(A,1)+size(B,2); T=T, rng=rng)
 
     # Direct (implicit) params
@@ -95,18 +97,21 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
     
     # system level constraints
     ℍ = zeros((nx+nv+nX+1)*nX,(nx*nX+nx*nU+nv*nU+nX*nU+nX+nU))
-    ℍ[1:nx*nX,1:nx*nX] = kron(A',Matrix(I,nx,nx))-kron(Matrix(I,nX,nX),ps.A)
-    ℍ[nx*nX+1:nx*nX+nv*nX,nx*nX] = kron(B1',Matrix(I,nX,nX))
-    ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nx*nx,nx*nX] = kron(B2',Matrix(I,nX,nX))
-    ℍ[nx*nX+nv*nX+nx*nx+1:end,nx*nX] = kron(ps.direct.bx',Matrix(I,nX,nX))
+    ℍ[1:nx*nX,1:nx*nX] = kron(A',Matrix(I,nX,nX))-kron(Matrix(I,nx,nx),ps.A)
+    ℍ[nx*nX+1:nx*nX+nv*nX,1:nx*nX] = kron(B1',Matrix(I,nX,nX))
+    ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX,1:nx*nX] = kron(B2',Matrix(I,nX,nX))
+    ℍ[nx*nX+nv*nX+nX*nX+1:end,1:nx*nX] = kron(ps.direct.bx',Matrix(I,nX,nX))
 
     ℍ[1:nx*nX,nx*nX+1:nx*nX+nx*nU] = -kron(Matrix(I,nx,nx),ps.B)
     ℍ[nx*nX+1:nx*nX+nv*nX,nx*nX+nx*nU+1:nx*nX+nx*nU+nv*nU] = -kron(Matrix(I,nv,nv),ps.B)
-    ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nx*nx,nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU] = -kron(Matrix(I,nX,nX),ps.B)
-    ℍ[nx*nX+nv*nX+nx*nx+1:end,nx*nX+nx*nU+nv*nU+nX*nU+1:nx*nX+nx*nU+nv*nU+nX*nU+nX] = I-ps.A
-    ℍ[nx*nX+nv*nX+nx*nx+1:end,nx*nX+nx*nU+nv*nU+nX*nU+nX+1:end] = -ps.B
+    ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX,nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU] = -kron(Matrix(I,nX,nX),ps.B)
+    ℍ[nx*nX+nv*nX+nX*nX+1:end,nx*nX+nx*nU+nv*nU+nX*nU+1:nx*nX+nx*nU+nv*nU+nX*nU+nX] = I-ps.A
+    ℍ[nx*nX+nv*nX+nX*nX+1:end,nx*nX+nx*nU+nv*nU+nX*nU+nX+1:end] = -ps.B
 
-    𝕘=pinv(ℍ)+(I-pinv(ℍ)*ℍ)*ps.y
+    𝕗=zeros(nx*nX+nv*nX+nX*nX+nX)
+    𝕗[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX] = vec(ps.A)
+    
+    𝕘=pinv(ℍ)*𝕗+(I-pinv(ℍ)*ℍ)*ps.y
 
     # recover explicit parameters
     C2 = reshape(𝕘[1:nx*nX+nx*nU],nX+nU,nx) 
