@@ -23,7 +23,7 @@ ren = REN(ren_ps)
 w0 = randn(size(A,1), batches)
 
 # Initialize system state anad controls
-X0 = zeros(size(A,1), batches)
+X0 = rand(size(A,1), batches)
 U0 = zeros(size(B,2), batches)
 
 # Initialize REN state
