@@ -33,7 +33,7 @@ function SystemlevelRENParams{T}(
     direct_ps = DirectParams{T}(
         nu, nx, nv, ny; 
         init=init, ϵ=ϵ, bx_scale=bx_scale, bv_scale=bv_scale, 
-        polar_param=polar_param, D22_free=false, rng=rng
+        polar_param=polar_param, D22_free=true, rng=rng
     )
 
     return SystemlevelRENParams{T}(nl, nu, nx, nv, ny, direct_ps, αbar, A, B, y)
@@ -41,7 +41,7 @@ function SystemlevelRENParams{T}(
 end
 
 function systemlevel_trainable(L::DirectParams, y::Vector)
-    ps = [L.ρ, L.X, L.Y1, L.X3, L.Y3, L.Z3, L.B2, L.D12, L.bx, L.bv, y]
+    ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv, y]
     !(L.polar_param) && popfirst!(ps)
     return filter(p -> length(p) !=0, ps)
 end
@@ -64,7 +64,7 @@ function Flux.cpu(m::SystemlevelRENParams{T}) where T
     )
 end
 
-function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
+function direct_to_explicit(ps::SystemlevelRENParams{T}, return_h=false) where T
 
     # System sizes
     nu = ps.nu
@@ -81,7 +81,7 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
     X = ps.direct.X
     H = ps.direct.polar_param ? exp(ρ[1])*(X'*X + ϵ*I) / norm(X)^2 : X'*X + ϵ*I
     
-    expilict_params = hmatrix_to_explicit(ps, H, ps.direct.D22)
+    expilict_params = hmatrix_to_explicit(ps, H)
 
     A = expilict_params.A
     B1 = expilict_params.B1
@@ -123,11 +123,11 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
     𝕘 = pinv(ℍ)*𝕗+(I-pinv(ℍ)*ℍ)*ps.y
 
     # recover explicit parameters
-    C2 = reshape(𝕘[1:nx*nX+nx*nU],nX+nU,nx)
+    C2 = vcat(reshape(𝕘[1:nx*nX],nX,nx),reshape(𝕘[nx*nX+1:nx*nX+nx*nU],nU,nx))
     D21 = vcat(zeros(nX,nv), reshape(𝕘[nx*nX+nx*nU+1:nx*nX+nx*nU+nv*nU],nU,nv))
-    D22 = vcat(I, reshape(𝕘[nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU],nU,nX))
+    D22 = vcat(Matrix(I,nX,nX), reshape(𝕘[nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU],nU,nX))
     by = 𝕘[nx*nX+nx*nU+nv*nU+nX*nU+1:end]
 
-    return ExplicitParams{T}(A, B1, B2, C1, C2, D11, D12, D21, D22, bx, bv, by)
-    
+    !return_h && (return ExplicitParams{T}(A, B1, B2, C1, C2, D11, D12, D21, D22, bx, bv, by))
+    return ℍ, 𝕗, 𝕘 
 end
