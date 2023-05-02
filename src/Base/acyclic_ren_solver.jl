@@ -16,7 +16,6 @@ function solve_tril_layer(ϕ::Union{typeof(Flux.relu), typeof(Flux.tanh)}, W::Ma
     end
     return z_eq
 end
-# TODO: Speed up this function with @inbounds, for i in axes(b,1), and anything else you can think of.
 
 """
     solve_tril_layer(ϕ, W::Matrix, b::VecOrMat)
