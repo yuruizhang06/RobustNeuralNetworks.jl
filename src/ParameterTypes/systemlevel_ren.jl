@@ -6,15 +6,15 @@ mutable struct SystemlevelRENParams{T} <: AbstractRENParams{T}
     ny::T
     direct::DirectParams{T}
     αbar::T
-    A::AbstractArray{Float64}
-    B::AbstractArray{FLoat64}
+    A::AbstractArray{T}
+    B::AbstractArray{T}
     y::Vector{T}
 end
 
 
 function SystemlevelRENParams{T}(
     nx::Int, nv::Int,
-    A::AbstractArray{Float64}, B::AbstractArray{Float64};
+    A::AbstractArray{T}, B::AbstractArray{T};
     nl = Flux.relu, 
     αbar::T = T(1),
     init = :random,
@@ -120,7 +120,7 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
 
     𝕗 = vcat(zeros(nx*nX+nv*nX),vec(ps.A),zeros(nX))
     
-    𝕘=pinv(ℍ)*𝕗+(I-pinv(ℍ)*ℍ)*ps.y
+    𝕘 = pinv(ℍ)*𝕗+(I-pinv(ℍ)*ℍ)*ps.y
 
     # recover explicit parameters
     C2 = reshape(𝕘[1:nx*nX+nx*nU],nX+nU,nx)
