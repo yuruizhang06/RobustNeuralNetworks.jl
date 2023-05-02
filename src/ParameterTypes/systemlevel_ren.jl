@@ -6,15 +6,15 @@ mutable struct SystemlevelRENParams{T} <: AbstractRENParams{T}
     ny::T
     direct::DirectParams{T}
     αbar::T
-    A::AbstractArray{Int}
-    B::AbstractArray{Int}
+    A::AbstractArray{Float64}
+    B::AbstractArray{FLoat64}
     y::Vector{T}
 end
 
 
 function SystemlevelRENParams{T}(
     nx::Int, nv::Int,
-    A::AbstractArray{Int}, B::AbstractArray{Int};
+    A::AbstractArray{Float64}, B::AbstractArray{Float64};
     nl = Flux.relu, 
     αbar::T = T(1),
     init = :random,
@@ -96,25 +96,34 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
 
     
     # system level constraints
-    ℍ = zeros((nx+nv+nX+1)*nX,(nx*nX+nx*nU+nv*nU+nX*nU+nX+nU))
-    ℍ[1:nx*nX,1:nx*nX] = kron(A',Matrix(I,nX,nX))-kron(Matrix(I,nx,nx),ps.A)
-    ℍ[nx*nX+1:nx*nX+nv*nX,1:nx*nX] = kron(B1',Matrix(I,nX,nX))
-    ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX,1:nx*nX] = kron(B2',Matrix(I,nX,nX))
-    ℍ[nx*nX+nv*nX+nX*nX+1:end,1:nx*nX] = kron(ps.direct.bx',Matrix(I,nX,nX))
+    # ℍ = zeros((nx+nv+nX+1)*nX,(nx*nX+nx*nU+nv*nU+nX*nU+nX+nU))
+    # ℍ[1:nx*nX,1:nx*nX] = kron(A',Matrix(I,nX,nX))-kron(Matrix(I,nx,nx),ps.A)
+    # ℍ[nx*nX+1:nx*nX+nv*nX,1:nx*nX] = kron(B1',Matrix(I,nX,nX))
+    # ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX,1:nx*nX] = kron(B2',Matrix(I,nX,nX))
+    # ℍ[nx*nX+nv*nX+nX*nX+1:end,1:nx*nX] = kron(ps.direct.bx',Matrix(I,nX,nX))
 
-    ℍ[1:nx*nX,nx*nX+1:nx*nX+nx*nU] = -kron(Matrix(I,nx,nx),ps.B)
-    ℍ[nx*nX+1:nx*nX+nv*nX,nx*nX+nx*nU+1:nx*nX+nx*nU+nv*nU] = -kron(Matrix(I,nv,nv),ps.B)
-    ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX,nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU] = -kron(Matrix(I,nX,nX),ps.B)
-    ℍ[nx*nX+nv*nX+nX*nX+1:end,nx*nX+nx*nU+nv*nU+nX*nU+1:nx*nX+nx*nU+nv*nU+nX*nU+nX] = I-ps.A
-    ℍ[nx*nX+nv*nX+nX*nX+1:end,nx*nX+nx*nU+nv*nU+nX*nU+nX+1:end] = -ps.B
+    # ℍ[1:nx*nX,nx*nX+1:nx*nX+nx*nU] = -kron(Matrix(I,nx,nx),ps.B)
+    # ℍ[nx*nX+1:nx*nX+nv*nX,nx*nX+nx*nU+1:nx*nX+nx*nU+nv*nU] = -kron(Matrix(I,nv,nv),ps.B)
+    # ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX,nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU] = -kron(Matrix(I,nX,nX),ps.B)
+    # ℍ[nx*nX+nv*nX+nX*nX+1:end,nx*nX+nx*nU+nv*nU+nX*nU+1:nx*nX+nx*nU+nv*nU+nX*nU+nX] = I-ps.A
+    # ℍ[nx*nX+nv*nX+nX*nX+1:end,nx*nX+nx*nU+nv*nU+nX*nU+nX+1:end] = -ps.B
 
-    𝕗=zeros(nx*nX+nv*nX+nX*nX+nX)
-    𝕗[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX] = vec(ps.A)
+    ℍ1 = hcat(kron(A',Matrix(I,nX,nX))-kron(Matrix(I,nx,nx),ps.A), -kron(Matrix(I,nx,nx),ps.B),
+        zeros(nx*nX,nv*nU+nX*nU+nX+nU))
+    ℍ2 = hcat(kron(B1',Matrix(I,nX,nX)), zeros(nv*nX,nx*nU), -kron(Matrix(I,nv,nv),ps.B),
+        zeros(nv*nX,nX*nU+nX+nU))
+    ℍ3 = hcat(kron(B2',Matrix(I,nX,nX)), zeros(nX*nX,nx*nU+nv*nU), -kron(Matrix(I,nX,nX),ps.B),
+        zeros(nX*nX,nX+nU))
+    ℍ4 = hcat(kron(ps.direct.bx',Matrix(I,nX,nX)), zeros(nX,nx*nU+nv*nU+nX*nU), I-ps.A, -ps.B)
+
+    ℍ = vcat(ℍ1,ℍ2,ℍ3,ℍ4)
+
+    𝕗 = vcat(zeros(nx*nX+nv*nX),vec(ps.A),zeros(nX))
     
     𝕘=pinv(ℍ)*𝕗+(I-pinv(ℍ)*ℍ)*ps.y
 
     # recover explicit parameters
-    C2 = reshape(𝕘[1:nx*nX+nx*nU],nX+nU,nx) 
+    C2 = reshape(𝕘[1:nx*nX+nx*nU],nX+nU,nx)
     D21 = vcat(zeros(nX,nv), reshape(𝕘[nx*nX+nx*nU+1:nx*nX+nx*nU+nv*nU],nU,nv))
     D22 = vcat(I, reshape(𝕘[nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU],nU,nX))
     by = 𝕘[nx*nX+nx*nU+nv*nU+nX*nU+1:end]
