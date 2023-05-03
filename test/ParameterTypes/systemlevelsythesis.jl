@@ -40,11 +40,12 @@ hn1, v1 = ren(h1, w1)
 ψx1 = v1[1:size(A,1),:]
 ψu1 = v1[size(A,1)+1:end,:]
 
-X2 = A*X1 + B*U1
+X2 = A*X1 + B*ψu1 + w1
 w2 = X2 - v1[1:size(A,1),:]
 h2, v2 = ren(hn1, w2)
 ψx2 = v2[1:size(A,1),:]
 ψu2 = v2[size(A,1)+1:end,:]
 
 # Validation for the system level constraints
-diff = ψx2 - A*ψx1 - B*ψu1-w2
+diff = ψx2 - A*ψx1 - B*ψu1 - w2
+@test all(norm(diff) <= 1e-6)
