@@ -128,6 +128,9 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}, return_h=false) where T
     D22 = vcat(Matrix(I,nX,nX), reshape(𝕘[nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU],nU,nX))
     by = 𝕘[nx*nX+nx*nU+nv*nU+nX*nU+1:end]
 
+    # println(norm(ℍ*𝕘-𝕗))
+    # println(reshape(𝕘[1:nx*nX],nX,nx)*B2-ps.A-ps.B*reshape(𝕘[nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU],nU,nX))
+    
     !return_h && (return ExplicitParams{T}(A, B1, B2, C1, C2, D11, D12, D21, D22, bx, bv, by))
     return ℍ, 𝕗, 𝕘 
 end
