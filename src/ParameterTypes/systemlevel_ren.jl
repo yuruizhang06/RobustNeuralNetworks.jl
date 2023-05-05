@@ -96,17 +96,6 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}, return_h=false) where T
 
     
     # system level constraints
-    # ℍ = zeros((nx+nv+nX+1)*nX,(nx*nX+nx*nU+nv*nU+nX*nU+nX+nU))
-    # ℍ[1:nx*nX,1:nx*nX] = kron(A',Matrix(I,nX,nX))-kron(Matrix(I,nx,nx),ps.A)
-    # ℍ[nx*nX+1:nx*nX+nv*nX,1:nx*nX] = kron(B1',Matrix(I,nX,nX))
-    # ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX,1:nx*nX] = kron(B2',Matrix(I,nX,nX))
-    # ℍ[nx*nX+nv*nX+nX*nX+1:end,1:nx*nX] = kron(ps.direct.bx',Matrix(I,nX,nX))
-
-    # ℍ[1:nx*nX,nx*nX+1:nx*nX+nx*nU] = -kron(Matrix(I,nx,nx),ps.B)
-    # ℍ[nx*nX+1:nx*nX+nv*nX,nx*nX+nx*nU+1:nx*nX+nx*nU+nv*nU] = -kron(Matrix(I,nv,nv),ps.B)
-    # ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX,nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU] = -kron(Matrix(I,nX,nX),ps.B)
-    # ℍ[nx*nX+nv*nX+nX*nX+1:end,nx*nX+nx*nU+nv*nU+nX*nU+1:nx*nX+nx*nU+nv*nU+nX*nU+nX] = I-ps.A
-    # ℍ[nx*nX+nv*nX+nX*nX+1:end,nx*nX+nx*nU+nv*nU+nX*nU+nX+1:end] = -ps.B
 
     ℍ1 = hcat(kron(A',Matrix(I,nX,nX))-kron(Matrix(I,nx,nx),ps.A), -kron(Matrix(I,nx,nx),ps.B),
         zeros(nx*nX,nv*nU+nX*nU+nX+nU))
