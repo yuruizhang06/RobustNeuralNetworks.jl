@@ -171,7 +171,7 @@ function direct_to_explicit(ps::ContractingRENParams{T}, return_h::Bool=false) w
     ϵ = ps.direct.ϵ
     ρ = ps.direct.ρ
     X = ps.direct.X
-    H = ps.direct.polar_param ? exp(ρ[1])*(X'*X + ϵ*I) / norm(X)^2 : X'*X + ϵ*I
+    H = ps.direct.polar_param ? ρ^2*(X'*X ) / norm(X)^2 + ϵ*I : X'*X + ϵ*I
     
     !return_h && (return hmatrix_to_explicit(ps, H))
     return H
