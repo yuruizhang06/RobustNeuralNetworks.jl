@@ -80,11 +80,12 @@ function DirectParams{T}(
         B2  = glorot_normal(nx, nu; T=T, rng=rng)
         D12 = glorot_normal(nv, nu; T=T, rng=rng)
         
-        ρ = zeros(1)
+        # ρ = zeros(1)
         
         # Make orthogonal X
         X = glorot_normal(2nx + nv, 2nx + nv; T=T, rng=rng)
         X = Matrix(qr(X).Q)
+        ρ = norm(X, 2)
 
     # Specify H and compute X
     elseif init == :cholesky
@@ -107,8 +108,9 @@ function DirectParams{T}(
                  -C1 H22 B1'
                  F  B1  P] + ϵ * I
         
-        ρ = zeros(T, 1)
+        
         X = Matrix{T}(cholesky(Htild).U) # H = X'*X
+        ρ = norm(X, 2)
 
     else
         error("Undefined initialisation method ", init)

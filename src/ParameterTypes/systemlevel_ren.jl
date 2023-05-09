@@ -18,7 +18,7 @@ function SystemlevelRENParams{T}(
     nl = Flux.relu, 
     αbar::T = T(1),
     init = :random,
-    polar_param::Bool = true,
+    polar_param::Bool = false,
     bx_scale::T = T(0), 
     bv_scale::T = T(1), 
     ϵ::T = T(1e-12), 
@@ -27,7 +27,7 @@ function SystemlevelRENParams{T}(
     
     nu = size(A,1)
     ny = size(A,1)+size(B,2)
-    y = glorot_normal(nx*size(A,1)+nx*size(B,2)+nv*size(B,2)+size(A,1)*size(B,2)+size(A,1)+size(B,2); T=T, rng=rng)
+    y = zeros(nx*size(A,1)+nx*size(B,2)+nv*size(B,2)+size(A,1)*size(B,2)+size(A,1)+size(B,2))
 
     # Direct (implicit) params
     direct_ps = DirectParams{T}(
@@ -79,7 +79,7 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}, return_h=false) where T
     ϵ = ps.direct.ϵ
     ρ = ps.direct.ρ
     X = ps.direct.X
-    H = ps.direct.polar_param ? exp(ρ[1])*(X'*X + ϵ*I) / norm(X)^2 : X'*X + ϵ*I
+    H = ps.direct.polar_param ? ρ[1]^2*(X'*X) / norm(X)^2 + ϵ*I : X'*X + ϵ*I
     
     expilict_params = hmatrix_to_explicit(ps, H)
 
