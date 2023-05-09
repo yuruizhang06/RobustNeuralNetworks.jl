@@ -77,9 +77,10 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}, return_h=false) where T
 
    #  from contracting ren
     ϵ = ps.direct.ϵ
-    ρ = ps.direct.ρ
+    ρ = ps.direct.ρ[1]
     X = ps.direct.X
-    H = ps.direct.polar_param ? ρ[1]^2*(X'*X) / norm(X)^2 + ϵ*I : X'*X + ϵ*I
+    polar_param = ps.direct.polar_param
+    H = x_to_h(X, ϵ, polar_param, ρ)
     
     expilict_params = hmatrix_to_explicit(ps, H)
 
@@ -93,10 +94,8 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}, return_h=false) where T
 
     bx = expilict_params.bx
     bv = expilict_params.bv
-
     
     # system level constraints
-
     ℍ1 = hcat(kron(A',Matrix(I,nX,nX))-kron(Matrix(I,nx,nx),ps.A), -kron(Matrix(I,nx,nx),ps.B),
         zeros(nx*nX,nv*nU+nX*nU+nX+nU))
     ℍ2 = hcat(kron(B1',Matrix(I,nX,nX)), zeros(nv*nX,nx*nU), -kron(Matrix(I,nv,nv),ps.B),
