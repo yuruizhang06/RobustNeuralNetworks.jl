@@ -4,7 +4,7 @@ mutable struct SystemlevelRENParams{T} <: AbstractRENParams{T}
     nx::Int
     nv::Int
     ny::T
-    direct::DirectParams{T}
+    direct::DirectRENParams{T}
     αbar::T
     A::AbstractArray{T}
     B::AbstractArray{T}
@@ -30,7 +30,7 @@ function SystemlevelRENParams{T}(
     y = zeros(nx*size(A,1)+nx*size(B,2)+nv*size(B,2)+size(A,1)*size(B,2)+size(A,1)+size(B,2))
 
     # Direct (implicit) params
-    direct_ps = DirectParams{T}(
+    direct_ps = DirectRENParams{T}(
         nu, nx, nv, ny; 
         init=init, ϵ=ϵ, bx_scale=bx_scale, bv_scale=bv_scale, 
         polar_param=polar_param, D22_free=true, rng=rng
@@ -40,7 +40,7 @@ function SystemlevelRENParams{T}(
 
 end
 
-function systemlevel_trainable(L::DirectParams, y::Vector)
+function systemlevel_trainable(L::DirectRENParams, y::Vector)
     ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv, y]
     !(L.polar_param) && popfirst!(ps)
     return filter(p -> length(p) !=0, ps)
@@ -116,6 +116,6 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}, return_h=false) where T
     D22 = vcat(Matrix(I,nX,nX), reshape(𝕘[nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU],nU,nX))
     by = 𝕘[nx*nX+nx*nU+nv*nU+nX*nU+1:end]
     
-    !return_h && (return ExplicitParams{T}(A, B1, B2, C1, C2, D11, D12, D21, D22, bx, bv, by))
+    !return_h && (return ExplicitRENParams{T}(A, B1, B2, C1, C2, D11, D12, D21, D22, bx, bv, by))
     return ℍ, 𝕗, 𝕘 
 end
