@@ -91,7 +91,7 @@ ny = nx
 # Constuction REN
 model = ContractingRENParams{Float64}(nu, nx, nv, ny; D22_zero=true)
 
-function contracting_trainable(L::DirectParams)
+function contracting_trainable(L::DirectRENParams)
     ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv, L.by]
     !(L.polar_param) && popfirst!(ps)
     return filter(p -> length(p) !=0, ps)
