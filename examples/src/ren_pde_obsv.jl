@@ -51,8 +51,8 @@ function reaction_diffusion_equation(;L=10.0, steps=5, nx=51, c=1.0, sigma=0.1, 
     end
 
     function g(u, d)
-        return [d + measurement_noise*randn(1, size(d, 2));
-                u[end ÷ 2:end ÷ 2, :] + measurement_noise*randn(1, size(u, 2))]
+        return [d .+ measurement_noise*randn(1, size(d, 2));
+                u[end ÷ 2:end ÷ 2, :] .+ measurement_noise*randn(1, size(u, 2))]
     end
     return f, g
 end
@@ -79,7 +79,7 @@ xn = X[:, 2:end]
 y = g(X, U)
 
 input_data = [U; y][:, 1:end - 1]  # inputs to observer
-batchsize = 200
+batchsize = 20
 
 data = Flux.Data.DataLoader((xn, xt, input_data), batchsize=batchsize, shuffle=true)
 
@@ -96,19 +96,20 @@ function contracting_trainable(L::DirectParams)
     !(L.polar_param) && popfirst!(ps)
     return filter(p -> length(p) !=0, ps)
 end
+model.direct.C2 = Matrix(1.0I, nx, nx)
+model.direct.D21 = zeros(nx,nv)
 
 Flux.trainable(m::ContractingRENParams) = contracting_trainable(m.direct)
 
-function train_observer!(model, data, opt; Epochs=200, regularizer=nothing, solve_tol=1E-5, min_lr=1E-4)
+function train_observer!(model, data, opt; Epochs=200, regularizer=nothing, solve_tol=1E-5, min_lr=1E-7)
     θ = Flux.trainable(model)
     ps = Flux.Params(θ)
     model_e = REN(model)
     mean_loss = [1E5]
     loss_std = []
     for epoch in 1:Epochs
-        # model_e = REN(model)
-        model_e.explicit.C2 = Matrix(1.0I, nx, nx)
-        model_e.explicit.D21 = zeros(nx,nv)
+        # model_e.explicit.C2 = Matrix(1.0I, nx, nx)
+        # model_e.explicit.D21 = zeros(nx,nv)
         batch_loss = []
         for (xni, xi, ui) in data
             function calc_loss()
@@ -146,7 +147,7 @@ function train_observer!(model, data, opt; Epochs=200, regularizer=nothing, solv
 end
 
 opt = Flux.Optimise.ADAM(1E-3)
-tloss, loss_std = train_observer!(model, data, opt; Epochs=1000, solve_tol=1E-5)
+tloss, loss_std = train_observer!(model, data, opt; Epochs=20, min_lr=1E-4)
 
 # Test observer
 T = 1000
@@ -170,10 +171,28 @@ end
 y = [g(x[:, t:t], u[t]) for t in time]
 
 batches = 1
-observer_inputs = [repeat([ui; yi], outer=(1, batches)) for (ui, yi) in zip(u, y)] |> device
+observer_inputs = [repeat([ui; yi], outer=(1, batches)) for (ui, yi) in zip(u, y)]
+
+# unzip(a) = (getfield.(a, x) for x in fieldnames(eltype(a)))
+
+# Foward simulation
+function simulate(explicit_param::REN, x0, u)
+    eval_cell = (x, u) -> explicit_param(x, u)
+    recurrent = Flux.Recur(eval_cell, x0)
+    output = recurrent.(u)
+    # output = []
+    # for (t, input) in enumerate(u)
+    #     xt, yt = recurrent(input)
+    #     println(typeof(xt),xt,size(xt))
+    #     stop_here()
+    #     push!(output, xt)
+    # end
+    return output
+end
 
 x0 = zeros(nx, batches)
-xhat = collect(simulate(testdata["model"], x0, observer_inputs))[1]
+model_e = REN(model)
+xhat = simulate(model_e, x0, observer_inputs)
 
 p1 = heatmap(x, color=:cividis, aspect_ratio=1);
 
@@ -182,4 +201,4 @@ p2 = heatmap(Xhat[:, 1:batches:end], color=:cividis, aspect_ratio=1);
 p3 = heatmap(abs.(x - Xhat[:, 1:batches:end]), color=:cividis, aspect_ratio=1);
 
 p = plot(p1, p2, p3; layout=(3, 1))
-savefig(p,"pde_observer.png")
+# savefig(p,"pde_observer.png")
