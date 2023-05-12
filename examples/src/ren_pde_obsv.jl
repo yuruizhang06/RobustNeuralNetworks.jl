@@ -1,5 +1,5 @@
 using Revise
-using BenchmarkTools
+# using BenchmarkTools
 using Distributions
 using Flux
 using Flux.Optimise:update!
@@ -92,26 +92,26 @@ ny = nx
 model = ContractingRENParams{Float64}(nu, nx, nv, ny; D22_zero=true)
 
 function contracting_trainable(L::DirectRENParams)
-    ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv, L.by]
+    ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv]
     !(L.polar_param) && popfirst!(ps)
     return filter(p -> length(p) !=0, ps)
 end
 model.direct.C2 = Matrix(1.0I, nx, nx)
 model.direct.D21 = zeros(nx,nv)
+model.direct.by = zeros(nx)
 
 Flux.trainable(m::ContractingRENParams) = contracting_trainable(m.direct)
 
 function train_observer!(model, data, opt; Epochs=200, regularizer=nothing, solve_tol=1E-5, min_lr=1E-7)
     θ = Flux.trainable(model)
     ps = Flux.Params(θ)
-    model_e = REN(model)
+    # model_e = REN(model)
     mean_loss = [1E5]
     loss_std = []
     for epoch in 1:Epochs
-        # model_e.explicit.C2 = Matrix(1.0I, nx, nx)
-        # model_e.explicit.D21 = zeros(nx,nv)
         batch_loss = []
         for (xni, xi, ui) in data
+            model_e = REN(model)
             function calc_loss()
                 xpred = model_e(xi, ui)[1]
                 return mean(norm(xpred[:, i] - xni[:, i]).^2 for i in 1:size(xi, 2))
@@ -119,7 +119,7 @@ function train_observer!(model, data, opt; Epochs=200, regularizer=nothing, solv
 
             train_loss, back = Zygote.pullback(calc_loss, ps)
 
-            # calculate gradients and update loss
+            # Calculate gradients and update loss
             ∇J = back(one(train_loss))
             update!(opt, ps, ∇J)
         
@@ -147,7 +147,7 @@ function train_observer!(model, data, opt; Epochs=200, regularizer=nothing, solv
 end
 
 opt = Flux.Optimise.ADAM(1E-3)
-tloss, loss_std = train_observer!(model, data, opt; Epochs=20, min_lr=1E-4)
+tloss, loss_std = train_observer!(model, data, opt; Epochs=200, min_lr=1E-4)
 
 # Test observer
 T = 1000
@@ -172,21 +172,13 @@ y = [g(x[:, t:t], u[t]) for t in time]
 
 batches = 1
 observer_inputs = [repeat([ui; yi], outer=(1, batches)) for (ui, yi) in zip(u, y)]
-
-# unzip(a) = (getfield.(a, x) for x in fieldnames(eltype(a)))
+# println(typeof(observer_inputs),size(observer_inputs))
 
 # Foward simulation
-function simulate(explicit_param::REN, x0, u)
-    eval_cell = (x, u) -> explicit_param(x, u)
+function simulate(model_e::REN, x0, u)
+    eval_cell = (x, u) -> model_e(x, u)
     recurrent = Flux.Recur(eval_cell, x0)
-    output = recurrent.(u)
-    # output = []
-    # for (t, input) in enumerate(u)
-    #     xt, yt = recurrent(input)
-    #     println(typeof(xt),xt,size(xt))
-    #     stop_here()
-    #     push!(output, xt)
-    # end
+    output = [recurrent(input) for input in u]
     return output
 end
 
