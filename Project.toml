@@ -4,11 +4,6 @@ authors = ["Nicholas H. Barbara", "Max Revay", "Ruigang Wang", "Jing Cheng", "Je
 version = "0.1.0"
 
 [deps]
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
-ControlSystems = "a6e380b2-a6ca-5380-bf3e-84a91bcd477e"
-DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 Formatting = "59287772-0a20-5a39-b81b-1366585eb4c0"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -19,7 +14,6 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-CUDA = "3, 4"
 Flux = "0.13"
 MatrixEquations = "2"
 Zygote = "0.6"
