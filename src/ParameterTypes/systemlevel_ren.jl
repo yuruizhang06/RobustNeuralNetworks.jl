@@ -18,7 +18,7 @@ function SystemlevelRENParams{T}(
     nl = Flux.relu, 
     αbar::T = T(1),
     init = :random,
-    polar_param::Bool = false,
+    polar_param::Bool = true,
     bx_scale::T = T(0), 
     bv_scale::T = T(1), 
     ϵ::T = T(1e-12), 
@@ -33,7 +33,7 @@ function SystemlevelRENParams{T}(
     direct_ps = DirectRENParams{T}(
         nu, nx, nv, ny; 
         init=init, ϵ=ϵ, bx_scale=bx_scale, bv_scale=bv_scale, 
-        polar_param=polar_param, D22_free=true, rng=rng
+        polar_param=polar_param, D22_free=false, rng=rng
     )
 
     return SystemlevelRENParams{T}(nl, nu, nx, nv, ny, direct_ps, αbar, A, B, y)
