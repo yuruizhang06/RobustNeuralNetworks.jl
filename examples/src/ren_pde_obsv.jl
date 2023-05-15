@@ -102,7 +102,7 @@ model = ContractingRENParams{Float64}(nu, nx, nv, ny; is_output = false)
 
 function train_observer!(model, data, opt; Epochs=200, regularizer=nothing, solve_tol=1E-5, min_lr=1E-7)
     θ = Flux.trainable(model)
-    ps = Flux.Params(θ)
+    ps = Flux.params(θ)
     # model_e = REN(model)
     mean_loss = [1E5]
     loss_std = []

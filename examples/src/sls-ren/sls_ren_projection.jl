@@ -53,7 +53,7 @@ zv1 = rollout(G, Q, wv)
 Jv1 = cost(zv1)
 opt = ADAM(η)
 optimizer = Flux.Optimiser(ADAM(η))
-ps = Flux.Params(Flux.trainable(Q))
+ps = Flux.params(Q)
 Q.direct.bx=0*Q.direct.bx 
 Q.direct.bv=0*Q.direct.bv
 Q.direct.by=0*Q.direct.by
@@ -66,7 +66,7 @@ for epoch in 1:Epoch
     # optimization
     wt = wgen(G,tbatch,tsim,x0_lims,w_sigma;rng=rng)
     
-    function loss(Q)
+    function loss()
         zt = rollout(G, Q, wt)
         return cost(zt)
     end
