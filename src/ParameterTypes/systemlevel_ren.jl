@@ -52,7 +52,7 @@ function Flux.gpu(m::SystemlevelRENParams{T}) where T
     # TODO: Test and complete this
     direct_ps = Flux.gpu(m.direct)
     return SystemlevelRENParams{T}(
-        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar, m.ν
+        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar, m.A, m.B, m.y
     )
 end
 
@@ -60,7 +60,7 @@ function Flux.cpu(m::SystemlevelRENParams{T}) where T
     # TODO: Test and complete this
     direct_ps = Flux.cpu(m.direct)
     return SystemlevelRENParams{T}(
-        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar, m.ν
+        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar, m.A, m.B, m.y
     )
 end
 
