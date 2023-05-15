@@ -1,6 +1,5 @@
 using Distributions
 using Random
-# using LinearAlgebra
 using MatrixEquations
 
 # utility

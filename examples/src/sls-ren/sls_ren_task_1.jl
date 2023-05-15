@@ -4,7 +4,6 @@ using Flux.Optimise:update!
 using Flux.Optimise:ADAM
 using Zygote
 using LinearAlgebra
-
 using Random
 using StableRNGs
 using Plots
@@ -19,7 +18,7 @@ rng = StableRNG(0)
 vbatch = 200
 vsim = 40
 A = [1.5 0.5; 0 1]
-B = [0; 1]
+B = [0; 1.0]
 C = [1 0]
 L = [10, 5, 1]
 # A = [1.5 0.5 1; 0 1 2; 2 3 1]
@@ -40,9 +39,9 @@ wv = wgen(G, vbatch, vsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (20, 40, 80, 400, 1E-4)
+nqx, nqv, batches, Epoch, η = (10, 20, 40, 400, 1E-4)
 # step_decay_ep, step_decay_mag, step_decay_end = 0.8*Epoch, 0.1,  0.1
-Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B;init = :cholesky)
+Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B; init = :cholesky)
 zv1 = rollout(G, Q, wv)
 Jv1 = cost(zv1)
 
@@ -66,7 +65,7 @@ for epoch in 1:Epoch
         return cost(zt)
     end
 
-    J, back = Zygote.pullback(loss,ps)
+    J, back = Zygote.pullback(loss)
     ∇J = back(one(J)) 
     update!(opt, ps, ∇J)  
 
@@ -92,22 +91,6 @@ for epoch in 1:Epoch
     # println("Cosine distance: $cosinedis, Norm: $normdiff")
     # global Jvs =[Jvs..., Jv]
     push!(Jvs, Jv)
-
-    # if Jvs[end] >= Jvs[end - 1]
-    #     if Jvs[end] <= minimum(Jvs[1:end - 1]) - 0.001 * Jvs[end]
-    #         global no_decrease_counter = 0
-    #     else
-    #         global no_decrease_counter = no_decrease_counter + 1
-    #     end
-    #     if no_decrease_counter > 3
-    #         global no_decrease_counter = 0
-    #         println("Reducing Learning rate")
-    #         opt.eta *= 0.1
-    #     end
-    #     if opt.eta <= 1E-10  # terminate optim.
-    #         return Jvs
-    #     end
-    # end
     println("Epoch: $epoch, Jt: $J, Jr: $Jv, J0: $Jb")
 
 end

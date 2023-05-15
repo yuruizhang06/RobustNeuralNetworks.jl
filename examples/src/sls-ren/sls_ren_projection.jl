@@ -66,12 +66,12 @@ for epoch in 1:Epoch
     # optimization
     wt = wgen(G,tbatch,tsim,x0_lims,w_sigma;rng=rng)
     
-    function loss()
+    function loss(Q)
         zt = rollout(G, Q, wt)
         return cost(zt)
     end
 
-    J, back = Zygote.pullback(loss,ps)
+    J, back = Zygote.pullback(loss, ps)
     ∇J = back(one(J)) 
     update!(optimizer, ps, ∇J)  
     proj!(G, Q)
@@ -99,24 +99,7 @@ for epoch in 1:Epoch
     # println("Cosine distance: $cosinedis, Norm: $normdiff")
 
     push!(Jvs, Jv)
-
-    # if Jvs[end] >= Jvs[end - 1]
-    #     if Jvs[end] <= minimum(Jvs[1:end - 1]) - 0.001 * Jvs[end]
-    #         global no_decrease_counter = 0
-    #     else
-    #         global no_decrease_counter = no_decrease_counter + 1
-    #     end
-    #     if no_decrease_counter > 3
-    #         global no_decrease_counter = 0
-    #         println("Reducing Learning rate")
-    #         opt.eta *= 0.1
-    #     end
-    #     if opt.eta <= 1E-10  # terminate optim.
-    #         return Jvs
-    #     end
-    # end
     println("Epoch: $epoch, Jt: $J, Jr: $Jv, J0: $Jb")
-    #printfmt("Epoch: {1:3d} | Jt: {2:.2f}, Jv: {3:.2f}, Jb: {4:.2f}\n", epoch, J, Jv, Jb)
 
 end
 
@@ -142,7 +125,6 @@ end
 
 plot(ψx[1,:], label="ψx1")
 plot!(ψx[2,:], label="ψx2")
-plot!(ψx[3,:], label="ψx3")
 plot!(ψu[1,:], label="ψu")
 
 
