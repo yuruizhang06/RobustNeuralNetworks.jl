@@ -65,7 +65,7 @@ for epoch in 1:Epoch
         return cost(zt)
     end
 
-    J, back = Zygote.pullback(loss,ps)
+    J, back = Zygote.pullback(loss)
     ∇J = back(one(J)) 
     update!(opt, ps, ∇J)  
 
@@ -91,22 +91,6 @@ for epoch in 1:Epoch
     # println("Cosine distance: $cosinedis, Norm: $normdiff")
     # global Jvs =[Jvs..., Jv]
     push!(Jvs, Jv)
-
-    # if Jvs[end] >= Jvs[end - 1]
-    #     if Jvs[end] <= minimum(Jvs[1:end - 1]) - 0.001 * Jvs[end]
-    #         global no_decrease_counter = 0
-    #     else
-    #         global no_decrease_counter = no_decrease_counter + 1
-    #     end
-    #     if no_decrease_counter > 3
-    #         global no_decrease_counter = 0
-    #         println("Reducing Learning rate")
-    #         opt.eta *= 0.1
-    #     end
-    #     if opt.eta <= 1E-10  # terminate optim.
-    #         return Jvs
-    #     end
-    # end
     println("Epoch: $epoch, Jt: $J, Jr: $Jv, J0: $Jb")
 
 end
