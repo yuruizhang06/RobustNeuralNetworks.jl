@@ -4,7 +4,7 @@ mutable struct SystemlevelRENParams{T} <: AbstractRENParams{T}
     nx::Int
     nv::Int
     ny::T
-    direct::DirectParams{T}
+    direct::DirectRENParams{T}
     αbar::T
     A::AbstractArray{T}
     B::AbstractArray{T}
@@ -18,7 +18,7 @@ function SystemlevelRENParams{T}(
     nl = Flux.relu, 
     αbar::T = T(1),
     init = :random,
-    polar_param::Bool = true,
+    polar_param::Bool = false,
     bx_scale::T = T(0), 
     bv_scale::T = T(1), 
     ϵ::T = T(1e-12), 
@@ -27,21 +27,21 @@ function SystemlevelRENParams{T}(
     
     nu = size(A,1)
     ny = size(A,1)+size(B,2)
-    y = glorot_normal(nx*size(A,1)+nx*size(B,2)+nv*size(B,2)+size(A,1)*size(B,2)+size(A,1)+size(B,2); T=T, rng=rng)
+    y = zeros(nx*size(A,1)+nx*size(B,2)+nv*size(B,2)+size(A,1)*size(B,2)+size(A,1)+size(B,2))
 
     # Direct (implicit) params
-    direct_ps = DirectParams{T}(
+    direct_ps = DirectRENParams{T}(
         nu, nx, nv, ny; 
         init=init, ϵ=ϵ, bx_scale=bx_scale, bv_scale=bv_scale, 
-        polar_param=polar_param, D22_free=false, rng=rng
+        polar_param=polar_param, D22_free=true, rng=rng
     )
 
     return SystemlevelRENParams{T}(nl, nu, nx, nv, ny, direct_ps, αbar, A, B, y)
 
 end
 
-function systemlevel_trainable(L::DirectParams, y::Vector)
-    ps = [L.ρ, L.X, L.Y1, L.X3, L.Y3, L.Z3, L.B2, L.D12, L.bx, L.bv, y]
+function systemlevel_trainable(L::DirectRENParams, y::Vector)
+    ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv, y]
     !(L.polar_param) && popfirst!(ps)
     return filter(p -> length(p) !=0, ps)
 end
@@ -64,7 +64,7 @@ function Flux.cpu(m::SystemlevelRENParams{T}) where T
     )
 end
 
-function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
+function direct_to_explicit(ps::SystemlevelRENParams{T}, return_h=false) where T
 
     # System sizes
     nu = ps.nu
@@ -77,11 +77,12 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
 
    #  from contracting ren
     ϵ = ps.direct.ϵ
-    ρ = ps.direct.ρ
+    ρ = ps.direct.ρ[1]
     X = ps.direct.X
-    H = ps.direct.polar_param ? exp(ρ[1])*(X'*X + ϵ*I) / norm(X)^2 : X'*X + ϵ*I
+    polar_param = ps.direct.polar_param
+    H = x_to_h(X, ϵ, polar_param, ρ)
     
-    expilict_params = hmatrix_to_explicit(ps, H, ps.direct.D22)
+    expilict_params = hmatrix_to_explicit(ps, H)
 
     A = expilict_params.A
     B1 = expilict_params.B1
@@ -93,21 +94,8 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
 
     bx = expilict_params.bx
     bv = expilict_params.bv
-
     
     # system level constraints
-    # ℍ = zeros((nx+nv+nX+1)*nX,(nx*nX+nx*nU+nv*nU+nX*nU+nX+nU))
-    # ℍ[1:nx*nX,1:nx*nX] = kron(A',Matrix(I,nX,nX))-kron(Matrix(I,nx,nx),ps.A)
-    # ℍ[nx*nX+1:nx*nX+nv*nX,1:nx*nX] = kron(B1',Matrix(I,nX,nX))
-    # ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX,1:nx*nX] = kron(B2',Matrix(I,nX,nX))
-    # ℍ[nx*nX+nv*nX+nX*nX+1:end,1:nx*nX] = kron(ps.direct.bx',Matrix(I,nX,nX))
-
-    # ℍ[1:nx*nX,nx*nX+1:nx*nX+nx*nU] = -kron(Matrix(I,nx,nx),ps.B)
-    # ℍ[nx*nX+1:nx*nX+nv*nX,nx*nX+nx*nU+1:nx*nX+nx*nU+nv*nU] = -kron(Matrix(I,nv,nv),ps.B)
-    # ℍ[nx*nX+nv*nX+1:nx*nX+nv*nX+nX*nX,nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU] = -kron(Matrix(I,nX,nX),ps.B)
-    # ℍ[nx*nX+nv*nX+nX*nX+1:end,nx*nX+nx*nU+nv*nU+nX*nU+1:nx*nX+nx*nU+nv*nU+nX*nU+nX] = I-ps.A
-    # ℍ[nx*nX+nv*nX+nX*nX+1:end,nx*nX+nx*nU+nv*nU+nX*nU+nX+1:end] = -ps.B
-
     ℍ1 = hcat(kron(A',Matrix(I,nX,nX))-kron(Matrix(I,nx,nx),ps.A), -kron(Matrix(I,nx,nx),ps.B),
         zeros(nx*nX,nv*nU+nX*nU+nX+nU))
     ℍ2 = hcat(kron(B1',Matrix(I,nX,nX)), zeros(nv*nX,nx*nU), -kron(Matrix(I,nv,nv),ps.B),
@@ -123,11 +111,11 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
     𝕘 = pinv(ℍ)*𝕗+(I-pinv(ℍ)*ℍ)*ps.y
 
     # recover explicit parameters
-    C2 = reshape(𝕘[1:nx*nX+nx*nU],nX+nU,nx)
+    C2 = vcat(reshape(𝕘[1:nx*nX],nX,nx),reshape(𝕘[nx*nX+1:nx*nX+nx*nU],nU,nx))
     D21 = vcat(zeros(nX,nv), reshape(𝕘[nx*nX+nx*nU+1:nx*nX+nx*nU+nv*nU],nU,nv))
-    D22 = vcat(I, reshape(𝕘[nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU],nU,nX))
+    D22 = vcat(Matrix(I,nX,nX), reshape(𝕘[nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU],nU,nX))
     by = 𝕘[nx*nX+nx*nU+nv*nU+nX*nU+1:end]
-
-    return ExplicitParams{T}(A, B1, B2, C1, C2, D11, D12, D21, D22, bx, bv, by)
     
+    !return_h && (return ExplicitRENParams{T}(A, B1, B2, C1, C2, D11, D12, D21, D22, bx, bv, by))
+    return ℍ, 𝕗, 𝕘 
 end

@@ -22,22 +22,52 @@ ren = REN(ren_ps)
 # Generate random noise
 w0 = randn(size(A,1), batches)
 
-# Initialize system state anad controls
-X0 = zeros(size(A,1), batches)
-U0 = zeros(size(B,2), batches)
+# Initialize system state and controls
+X_1 = zeros(size(A,1), batches)
+U_1 = zeros(size(B,2), batches)
 
 # Initialize REN state
-h0 = randn(nx, batches)
+h_1 = zeros(nx, batches)
+wh_1= zeros(size(A,1), batches)
 
-# Test system level synthesis
-X1 = A*X0 + B*U0 + w0
-h1, v0 = ren(h0, w0)
+# Forward simulation
+# At t=0
+# X0 = A*X_1 + B*U_1 + w0
+# h0, v_1 = ren(h_1, w)
+# wh0 = X0 - v_1[1:size(A,1),:]
+# h1, v0 = ren(h0, wh0)
+# ψx0 = v0[1:size(A,1),:]
+# ψu0 = v0[size(A,1)+1:end,:]
+X0 = A*X_1 + B*U_1 + w0
+h1, v = ren(h_1, w0)
+ψx = v[1:size(A,1),:]
+ψu = v[size(A,1)+1:end,:]
 
-# Controller realization
-w1 = X1 - v0[1:size(A,1),:]
-h2, v1 = ren(h1, w1)
-u1 = v1[size(A,1)+1:end,:]
+X1 = A*X0 + B*ψu
+h2, v = ren(h1, wh_1)
+ψx1 = v[1:size(A,1),:]
+ψu1 = v[size(A,1)+1:end,:]
+
+X2 = A*X1 + B*ψu1
+h3, v = ren(h2, wh_1)
+ψx2 = v[1:size(A,1),:]
+ψu2 = v[size(A,1)+1:end,:]
+
+
+# At t=1
+# X1 = A*X0 + B*ψu0
+# wh1 = X1 - ψx0
+# h2, v1 = ren(h1, wh1)
+# ψx1 = v1[1:size(A,1),:]
+# ψu1 = v1[size(A,1)+1:end,:]
+
+# # At t=2
+# X2 = A*X1 + B*ψu1
+# wh2 = X2 - ψx1
+# h3, v2 = ren(h2, wh2)
+# ψx2 = v2[1:size(A,1),:]
+# ψu2 = v2[size(A,1)+1:end,:]
 
 # Validation for the system level constraints
-ψx= v1[1:size(A,1),:]
-diff = X1 - ψx
+diff = ψx2 - A*ψx1 - B*ψu1
+@test all(norm(diff) <= 1e-6)
