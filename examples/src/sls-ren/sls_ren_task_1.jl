@@ -1,3 +1,7 @@
+cd(@__DIR__)
+using Pkg
+Pkg.activate("../../")
+
 using Revise
 using Flux
 using Flux.Optimise:update!
@@ -47,7 +51,7 @@ Jv1 = cost(zv1)
 
 opt = ADAM(η)
 optimizer = Flux.Optimiser(ADAM(η))
-ps = Flux.Params(Flux.trainable(Q))
+ps = Flux.params(Q)
 Q.direct.bx=0*Q.direct.bx 
 Q.direct.bv=0*Q.direct.bv
 Q.direct.by=0*Q.direct.by
@@ -65,7 +69,7 @@ for epoch in 1:Epoch
         return cost(zt)
     end
 
-    J, back = Zygote.pullback(loss)
+    J, back = Zygote.pullback(loss, ps)
     ∇J = back(one(J)) 
     update!(opt, ps, ∇J)  
 
