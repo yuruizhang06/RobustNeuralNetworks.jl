@@ -9,9 +9,7 @@ using Random
 using LinearAlgebra
 using Formatting
 using Plots
-using ControlSystems
-using DifferentialEquations
-using CUDA
+# using DifferentialEquations
 
 using RobustNeuralNetworks
 
@@ -89,9 +87,9 @@ nu = size(input_data, 1)
 ny = nx
 
 # Constuction REN
-model = ContractingRENParams{Float64}(nu, nx, nv, ny; D22_zero=true)
+model = ContractingRENParams{Float64}(nu, nx, nv, ny; polar_param = true, D22_zero=true)
 
-function contracting_trainable(L::DirectRENParams)
+function contracting_trainable_(L::DirectRENParams)
     ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv]
     !(L.polar_param) && popfirst!(ps)
     return filter(p -> length(p) !=0, ps)
@@ -100,7 +98,7 @@ model.direct.C2 = Matrix(1.0I, nx, nx)
 model.direct.D21 = zeros(nx,nv)
 model.direct.by = zeros(nx)
 
-Flux.trainable(m::ContractingRENParams) = contracting_trainable(m.direct)
+Flux.trainable(m::ContractingRENParams) = contracting_trainable_(m.direct)
 
 function train_observer!(model, data, opt; Epochs=200, regularizer=nothing, solve_tol=1E-5, min_lr=1E-7)
     θ = Flux.trainable(model)
@@ -147,7 +145,7 @@ function train_observer!(model, data, opt; Epochs=200, regularizer=nothing, solv
 end
 
 opt = Flux.Optimise.ADAM(1E-3)
-tloss, loss_std = train_observer!(model, data, opt; Epochs=200, min_lr=1E-4)
+tloss, loss_std = train_observer!(model, data, opt; Epochs=200, min_lr=1E-7)
 
 # Test observer
 T = 1000
