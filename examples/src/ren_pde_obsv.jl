@@ -1,5 +1,3 @@
-using Revise
-# using BenchmarkTools
 using Distributions
 using Flux
 using Flux.Optimise:update!
