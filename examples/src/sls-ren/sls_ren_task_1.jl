@@ -59,7 +59,6 @@ tbatch = 100
 tsim = 50
 Jvs = [Jv1]
 
-# global no_decrease_counter = 0
 for epoch in 1:Epoch
     # optimization
     wt = wgen(G,tbatch,tsim,G.x0_lims,w_sigma;rng=rng)
@@ -77,7 +76,7 @@ for epoch in 1:Epoch
     zv = rollout(G, Q, wv)
     Jv = cost(zv)
 
-    # calclation for sls constraint
+    # # checking sls constraint
     # zt, ψxs, ψus = validation(G, Q, wt)
     # ψx = ψxs[2:end,:]
     # ψu = ψus[2:end,:]

@@ -44,10 +44,10 @@ wv = wgen(G, vbatch, vsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (20, 40, 80, 400, 0.00001)
+nqx, nqv, batches, Epoch, η = (20, 40, 80, 400, 1E-5)
 nqu = nx 
 nqy = nx+nu 
-Q = ContractingRENParams{Float64}(nqu, nqx, nqv, nqy;init = :cholesky)
+Q = ContractingRENParams{Float64}(nqu, nqx, nqv, nqy; init = :cholesky)
 proj!(G, Q)
 zv1 = rollout(G, Q, wv)
 Jv1 = cost(zv1)
@@ -61,7 +61,6 @@ tbatch = 100
 tsim = 50
 Jvs = [Jv1]
 
-# global no_decrease_counter = 0
 for epoch in 1:Epoch
     # optimization
     wt = wgen(G,tbatch,tsim,x0_lims,w_sigma;rng=rng)
@@ -80,7 +79,7 @@ for epoch in 1:Epoch
     zv = rollout(G, Q, wv)
     Jv = cost(zv)
 
-    # # checking for sls constraint
+    # # checking sls constraint
     # zc, ψxs, ψus = validation(G, Q, wt)
     # # Jv = cost(zv)
     # ψx = ψxs[2:end,:]
