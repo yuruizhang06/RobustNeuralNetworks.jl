@@ -1,5 +1,5 @@
 mutable struct SystemlevelRENParams{T} <: AbstractRENParams{T}
-    nl                          # Sector-bounded nonlinearity
+    nl::Function                          # Sector-bounded nonlinearity
     nu::T
     nx::Int
     nv::Int
@@ -15,7 +15,7 @@ end
 function SystemlevelRENParams{T}(
     nx::Int, nv::Int,
     A::AbstractArray{T}, B::AbstractArray{T};
-    nl = Flux.relu, 
+    nl::Function = Flux.relu, 
     αbar::T = T(1),
     init = :random,
     polar_param::Bool = true,
@@ -84,18 +84,18 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}, return_h=false) where T
     polar_param = ps.direct.polar_param
     H = x_to_h(X, ϵ, polar_param, ρ)
     
-    expilict_params = hmatrix_to_explicit(ps, H)
+    explicit_params = hmatrix_to_explicit(ps, H)
 
-    A = expilict_params.A
-    B1 = expilict_params.B1
-    B2 = expilict_params.B2
+    A = explicit_params.A
+    B1 = explicit_params.B1
+    B2 = explicit_params.B2
 
-    C1 = expilict_params.C1
-    D11 = expilict_params.D11
-    D12 = expilict_params.D12
+    C1 = explicit_params.C1
+    D11 = explicit_params.D11
+    D12 = explicit_params.D12
 
-    bx = expilict_params.bx
-    bv = expilict_params.bv
+    bx = explicit_params.bx
+    bv = explicit_params.bv
     
     # system level constraints
     ℍ1 = hcat(kron(A',Matrix(I,nX,nX))-kron(Matrix(I,nx,nx),ps.A), -kron(Matrix(I,nx,nx),ps.B),
