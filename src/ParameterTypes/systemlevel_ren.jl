@@ -40,7 +40,7 @@ function SystemlevelRENParams{T}(
 
 end
 
-Flux.@functor SystemlevelRENParams (direct, )
+# Flux.@functor SystemlevelRENParams (direct, )
 
 function systemlevel_trainable(L::DirectRENParams, y::Vector)
     ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv, y]

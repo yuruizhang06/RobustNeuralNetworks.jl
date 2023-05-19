@@ -21,14 +21,14 @@ includet("./rollout_and_proj.jl")
 rng = StableRNG(0)
 vbatch = 200
 vsim = 40
-A = [1.5 0.5; 0 1]
-B = [0; 1.0]
-C = [1 0]
-L = [10, 5, 1]
-# A = [1.5 0.5 1; 0 1 2; 2 3 1]
-# B = [1; 0.0; 1]
-# C = [1 0 0]
-# L = [10, 5, 5, 1]
+# A = [1.5 0.5; 0 1]
+# B = [0; 1.0]
+# C = [1 0]
+# L = [10, 5, 1]
+A = [1.5 0.5 1; 0 1 2; 2 3 1]
+B = [1; 0.0; 1]
+C = [1 0 0]
+L = [10, 5, 5, 1]
 G = lti(A, B, C)
 nx = G.nx
 nu = G.nu
@@ -43,7 +43,7 @@ wv = wgen(G, vbatch, vsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (10, 20, 40, 400, 1E-4)
+nqx, nqv, batches, Epoch, η = (20, 50, 40, 600, 1E-3)
 # step_decay_ep, step_decay_mag, step_decay_end = 0.8*Epoch, 0.1,  0.1
 Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B; init = :cholesky)
 zv1 = rollout(G, Q, wv)

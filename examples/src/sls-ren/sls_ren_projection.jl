@@ -23,14 +23,14 @@ includet("./rollout_and_proj.jl")
 rng = StableRNG(0)
 vbatch = 200
 vsim = 40
-# A = [1.5 0.5; 0 1]
-# B = [0; 1]
-# C = [1 0]
-# L = [10, 5, 1]
-A = [1.5 0.5 1 2; 0 1 2 3; 2 3 1 3; 1 2 3 1]
-B = [1; 0; 1; 0.3]
-C = [1 0 0 0]
-L = [10, 5, 1 ,5, 1]
+A = [1.5 0.5; 0 1]
+B = [0; 1]
+C = [1 0]
+L = [10, 5, 1]
+# A = [1.5 0.5 1 2; 0 1 2 3; 2 3 1 3; 1 2 3 1]
+# B = [1; 0; 1; 0.3]
+# C = [1 0 0 0]
+# L = [10, 5, 1 ,5, 1]
 println(rank(ctrb(A,B)))
 G = lti(A, B, C)
 nx = G.nx
@@ -46,7 +46,7 @@ wv = wgen(G, vbatch, vsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (50, 200, 80, 400, 1E-4)
+nqx, nqv, batches, Epoch, η = (20, 50, 80, 400, 1E-4)
 nqu = nx 
 nqy = nx+nu 
 Q = ContractingRENParams{Float64}(nqu, nqx, nqv, nqy;polar_param = false, init = :cholesky)
