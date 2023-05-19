@@ -8,22 +8,16 @@ function rollout(G::lti, Q::ContractingRENParams, w)
     Qe = REN(Q)
     nx, nu = G.nx, G.nu
     batch = size(w[1], 2)
-    X1 = (zeros(nx, batch), zeros(Qe.nx, batch), zeros(nx, batch),
-         zeros(nu, batch))
+    X1 = (zeros(Qe.nx, batch))
 
     function f(X_1, t)
-        x_1, h_1, w_1, u_1 = X_1 
-        xt = G(x_1, u_1, w[t])
-        ht, v = Qe(h_1, w_1) 
-        wht = xt - v[1:nx,:]
-        hnt, vt= Qe(ht, wht) 
-        ut = vt[nx+1:nx+nu, :]
-        # ψx = v[1:nx,:]
-
+        h_1 = X_1 
+        ht, ψt = Qe(h_1, w[t])
+        ψx = ψt[1:nx,:]
+        ψu = ψt[nx+1:nx+nu,:]
         # validation
-        Xt = (xt, ht, wht, ut)
-        zt  = vcat(xt, ut)
-
+        Xt = ht
+        zt  = vcat(ψx , ψu)
         return Xt, zt
     end
 
@@ -111,21 +105,16 @@ function rollout(G::lti, Q::SystemlevelRENParams, w)
     Qe = REN(Q)
     nx, nu = G.nx, G.nu
     batch = size(w[1], 2)
-    X1 = (zeros(nx, batch), zeros(Qe.nx, batch), zeros(nx, batch),
-         zeros(nu, batch))
+    X1 = (zeros(Qe.nx, batch))
 
     function f(X_1, t)
-        x_1, h_1, w_1, u_1 = X_1 
-        xt = G(x_1, u_1, w[t])
-        ht, v = Qe(h_1, w_1) 
-        wht = xt - v[1:nx,:]
-        hnt, vt= Qe(ht, wht) 
-        ut = vt[nx+1:nx+nu, :]
-
+        h_1 = X_1 
+        ht, ψt = Qe(h_1, w[t])
+        ψx = ψt[1:nx,:]
+        ψu = ψt[nx+1:nx+nu,:]
         # validation
-        Xt = (xt, ht, wht, ut)
-        zt  = vcat(xt, ut)
-
+        Xt = ht
+        zt  = vcat(ψx , ψu)
         return Xt, zt
     end
 

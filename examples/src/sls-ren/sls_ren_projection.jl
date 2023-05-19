@@ -12,24 +12,22 @@ using StableRNGs
 using LinearAlgebra
 using Plots
 using MatrixEquations
+using ControlSystems
 
 using RobustNeuralNetworks
 
 includet("./utils.jl")
-includet("./rollout_and_proj.jl")
+includet("./rollout_and_projection.jl")
 
 # initialization
 rng = StableRNG(0)
 vbatch = 200
 vsim = 40
-A = [1.5 0.5; 0 1]
-B = [0; 1]
-C = [1 0]
-L = [10, 5, 1]
-# A = [1.5 0.5 1; 0 1 2; 2 3 1]
-# B = [1; 0; 1]
-# C = [1 0 0]
-# L = [10, 5, 5, 1]
+A = [1.5 0.5 1 2; 0 1 2 3; 2 3 1 3; 1 2 3 1]
+B = [1; 0; 1; 0.3]
+C = [1 0 0 0]
+L = [10, 5, 1 ,5, 1]
+println(rank(ctrb(A,B)))
 G = lti(A, B, C)
 nx = G.nx
 nu = G.nu
@@ -44,10 +42,10 @@ wv = wgen(G, vbatch, vsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (20, 40, 80, 400, 0.00001)
+nqx, nqv, batches, Epoch, η = (20, 50, 80, 400, 1E-3)
 nqu = nx 
 nqy = nx+nu 
-Q = ContractingRENParams{Float64}(nqu, nqx, nqv, nqy;init = :cholesky)
+Q = ContractingRENParams{Float64}(nqu, nqx, nqv, nqy;polar_param = false, init = :cholesky)
 proj!(G, Q)
 zv1 = rollout(G, Q, wv)
 Jv1 = cost(zv1)
@@ -61,7 +59,6 @@ tbatch = 100
 tsim = 50
 Jvs = [Jv1]
 
-# global no_decrease_counter = 0
 for epoch in 1:Epoch
     # optimization
     wt = wgen(G,tbatch,tsim,x0_lims,w_sigma;rng=rng)
@@ -77,10 +74,10 @@ for epoch in 1:Epoch
     proj!(G, Q)
 
     # validation with lqr
-    zv = rollout(G, Q, wv)
+    zv, ψxs, ψus = validation(G, Q, wv)
     Jv = cost(zv)
 
-    # # checking for sls constraint
+    # # checking sls constraint
     # zc, ψxs, ψus = validation(G, Q, wt)
     # # Jv = cost(zv)
     # ψx = ψxs[2:end,:]

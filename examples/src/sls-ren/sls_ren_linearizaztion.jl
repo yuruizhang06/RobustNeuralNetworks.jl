@@ -16,15 +16,15 @@ using RobustNeuralNetworks
 
 
 includet("./utils.jl")
-includet("./rollout_and_proj.jl")
+includet("./rollout_and_projection.jl")
 
 rng = StableRNG(0)
 vbatch = 200
 vsim = 40
-A = [1.5 0.5; 0 1]
-B = [0; 1.0]
-C = [1 0]
-L = [10, 5, 1]
+A = [1.5 0.5 1 2; 0 1 2 3; 2 3 1 3; 1 2 3 1]
+B = [1; 0; 1; 0.3]
+C = [1 0 0 0]
+L = [10, 5, 1 ,5, 1]
 # A = [1.5 0.5 1; 0 1 2; 2 3 1]
 # B = [1; 0.0; 1]
 # C = [1 0 0]
@@ -43,8 +43,7 @@ wv = wgen(G, vbatch, vsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (10, 20, 40, 400, 1E-4)
-# step_decay_ep, step_decay_mag, step_decay_end = 0.8*Epoch, 0.1,  0.1
+nqx, nqv, batches, Epoch, η = (20, 50, 40, 600, 1E-3)
 Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B; init = :cholesky)
 zv1 = rollout(G, Q, wv)
 Jv1 = cost(zv1)
@@ -59,7 +58,6 @@ tbatch = 100
 tsim = 50
 Jvs = [Jv1]
 
-# global no_decrease_counter = 0
 for epoch in 1:Epoch
     # optimization
     wt = wgen(G,tbatch,tsim,G.x0_lims,w_sigma;rng=rng)
@@ -74,10 +72,10 @@ for epoch in 1:Epoch
     update!(opt, ps, ∇J)  
 
     # validation with lqr
-    zv = rollout(G, Q, wv)
+    zv, ψxs, ψus = validation(G, Q, wv)
     Jv = cost(zv)
 
-    # calclation for sls constraint
+    # # checking sls constraint
     # zt, ψxs, ψus = validation(G, Q, wt)
     # ψx = ψxs[2:end,:]
     # ψu = ψus[2:end,:]
