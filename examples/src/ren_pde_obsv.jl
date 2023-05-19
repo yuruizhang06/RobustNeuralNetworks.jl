@@ -1,3 +1,7 @@
+cd(@__DIR__)
+using Pkg
+Pkg.activate("../")
+
 using Distributions
 using Flux
 using Flux.Optimise:update!
@@ -13,7 +17,7 @@ using RobustNeuralNetworks
 
 # Observer design experiment - start with linear system
 
-nv = 200
+nv = 500
 n = 51
 m = 1
 p = 1
@@ -85,7 +89,7 @@ nu = size(input_data, 1)
 ny = nx
 
 # Constuction REN
-model = ContractingRENParams{Float64}(nu, nx, nv, ny; is_output = false)
+model = ContractingRENParams{Float64}(nu, nx, nv, ny; polar_param = false, is_output = false)
 
 # function contracting_trainable_(L::DirectRENParams)
 #     ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv]
