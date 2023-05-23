@@ -43,7 +43,7 @@ wv = wgen(G, vbatch, vsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (20, 50, 80, 200, 1E-3)
+nqx, nqv, batches, Epoch, η = (20, 50, 80, 1000, 1E-3)
 Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B; init = :cholesky)
 zv1 = rollout(G, Q, wv)
 Jv1 = cost(zv1)
