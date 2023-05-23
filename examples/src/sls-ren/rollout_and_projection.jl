@@ -110,11 +110,11 @@ function rollout(G::lti, Q::SystemlevelRENParams, w)
     function f(X_1, t)
         h_1 = X_1 
         ht, ψt = Qe(h_1, w[t])
-        ψx = ψt[1:nx,:]
-        ψu = ψt[nx+1:nx+nu,:]
+        # ψx = ψt[1:nx,:]
+        # ψu = ψt[nx+1:nx+nu,:]
         # validation
         Xt = ht
-        zt  = vcat(ψx , ψu)
+        zt  = ψt
         return Xt, zt
     end
 
@@ -136,25 +136,29 @@ function validation(G::lti, Q::SystemlevelRENParams, w)
     function f(X_1, t)
         x_1, h_1, w_1, u_1 = X_1 
         xt = G(x_1, u_1, w[t])
-        ht, v = Qe(h_1, w_1) 
-        wht = xt - v[1:nx,:]
+        ht, v = Qe(h_1, w_1)
+        # wht = xt - v[1:nx,:]
+        wht = (xt - Qe.explicit.C2[1:nx,:]*ht .- Qe.explicit.by[1:nx,:])*0.5
         hnt, vt= Qe(ht, wht) 
+        # println(mean(norm(xt-vt[1:nx, :])))
+        # stop_here()
+        ψx = vt[1:nx,:]
         ut = vt[nx+1:nx+nu, :]
 
         # validation
-        Xt = (xt, ht, wht, ut)
-        zt  = vcat(xt, ut)
-
+        Xt = (ψx, ht, wht, ut)
+        # zt  = vcat(xt, ut)
+        zt = vt
         return Xt, zt
     end
 
     md = Flux.Recur(f,X1)
     z = md.(1:length(w))
  
-    for i in 1:length(w)
-        ψxs = vcat(ψxs, z[i][1:nx,:])
-        ψus = vcat(ψus, z[i][nx+1:nx+nu,:])
-    end
+    # for i in 1:length(w)
+    #     ψxs = vcat(ψxs, z[i][1:nx,:])
+    #     ψus = vcat(ψus, z[i][nx+1:nx+nu,:])
+    # end
 
-    return z, ψxs, ψus
+    return z #, ψxs, ψus
 end
