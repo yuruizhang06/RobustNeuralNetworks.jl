@@ -45,7 +45,7 @@ Jb = cost(zb)
 nqx, nqv, batches, Epoch, η = (20, 50, 80, 400, 1E-3)
 nqu = nx 
 nqy = nx+nu 
-Q = ContractingRENParams{Float64}(nqu, nqx, nqv, nqy;polar_param = false, init = :cholesky)
+Q = ContractingRENParams{Float64}(nqu, nqx, nqv, nqy; init = :cholesky)
 proj!(G, Q)
 zv1 = rollout(G, Q, wv)
 Jv1 = cost(zv1)
@@ -74,7 +74,7 @@ for epoch in 1:Epoch
     proj!(G, Q)
 
     # validation with lqr
-    zv, ψxs, ψus = validation(G, Q, wv)
+    zv, ψxs, ψus = validation(G, Q, wt)
     Jv = cost(zv)
 
     # # checking sls constraint
