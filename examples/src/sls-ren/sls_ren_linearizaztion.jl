@@ -57,6 +57,8 @@ Q.direct.by=0*Q.direct.by
 tbatch = 100
 tsim = 50
 Jvs = [Jv1]
+# ψx = []
+# ψu = []
 
 for epoch in 1:Epoch
     # optimization
@@ -72,25 +74,26 @@ for epoch in 1:Epoch
     update!(opt, ps, ∇J)  
 
     # validation with lqr
-    zv= validation(G, Q, wt)
+    zv, ψxs, ψus= validation(G, Q, wt)
     Jv = cost(zv)
 
-    # # checking sls constraint
+    # checking sls constraint
     # zt, ψxs, ψus = validation(G, Q, wt)
-    # ψx = ψxs[2:end,:]
-    # ψu = ψus[2:end,:]
-    # # cosine distance and norm
-    # diff = []
-    # cos_dis = []
-    # for i in 1:tsim-1
-    #     ψxn = A*ψx[2i-1:2i,:]+ B*ψu[i,:]' + wt[i]
-    #     diff = append!(diff,ψxn-ψx[2i+1:2i+2,:])  
-    #     cos_dis= append!(cos_dis, dot(ψxn, ψx[2i+1:2i+2,:]) / (norm(ψxn)* norm(ψx[2i+1:2i+2,:])))
-    # end
+    local ψx = ψxs[2:end,:]
+    local ψu = ψus[2:end,:]
+    # cosine distance and norm
+    diff = []
+    cos_dis = []
+    for i in 1:tsim-1
+        ψxn = A*ψx[(i-1)*nx+1:nx*i,:]+ B*ψu[i,:]' + wt[i]
+        diff = append!(diff,ψxn-ψx[nx*i+1:nx*(i+1),:])  
+        cos_dis= append!(cos_dis, dot(ψxn, ψx[nx*i+1:nx*(i+1),:]) 
+            / (norm(ψxn)* norm(ψx[nx*i+1:nx*(i+1),:])))
+    end
+    cosinedis = mean(cos_dis)
+    meandiff = mean(diff)
+    println("Cosine distance: $cosinedis, Mean: $meandiff")
 
-    # cosinedis = mean(cos_dis)
-    # normdiff = norm(diff)
-    # println("Cosine distance: $cosinedis, Norm: $normdiff")
     # global Jvs =[Jvs..., Jv]
     push!(Jvs, Jv)
     println("Epoch: $epoch, Jt: $J, Jr: $Jv, J0: $Jb")
