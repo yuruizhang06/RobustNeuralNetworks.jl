@@ -13,11 +13,11 @@ function rollout(G::lti, Q::ContractingRENParams, w)
     function f(X_1, t)
         h_1 = X_1 
         ht, ψt = Qe(h_1, w[t])
-        ψx = ψt[1:nx,:]
-        ψu = ψt[nx+1:nx+nu,:]
+        # ψx = ψt[1:nx,:]
+        # ψu = ψt[nx+1:nx+nu,:]
         # validation
         Xt = ht
-        zt  = vcat(ψx , ψu)
+        zt  = ψt
         return Xt, zt
     end
 
@@ -159,10 +159,10 @@ function validation(G::lti, Q::SystemlevelRENParams, w)
     md = Flux.Recur(f,X1)
     z = md.(1:length(w))
  
-    # for i in 1:length(w)
-    #     ψxs = vcat(ψxs, z[i][1:nx,:])
-    #     ψus = vcat(ψus, z[i][nx+1:nx+nu,:])
-    # end
+    for i in 1:length(w)
+        ψxs = vcat(ψxs, z[i][1:nx,:])
+        ψus = vcat(ψus, z[i][nx+1:nx+nu,:])
+    end
 
-    return z #, ψxs, ψus
+    return z, ψxs, ψus
 end
