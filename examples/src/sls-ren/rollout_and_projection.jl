@@ -39,15 +39,19 @@ function validation(G::lti, Q::ContractingRENParams, w)
     function f(X_1, t)
         x_1, h_1, w_1, u_1 = X_1 
         xt = G(x_1, u_1, w[t])
-        ht, v = Qe(h_1, w_1) 
-        wht = xt - v[1:nx,:]
+        ht, v = Qe(h_1, w_1)
+        # wht = xt - v[1:nx,:]
+        wht = (xt - Qe.explicit.C2[1:nx,:]*ht .- Qe.explicit.by[1:nx,:])*0.5
         hnt, vt= Qe(ht, wht) 
+        # println(mean(norm(xt-vt[1:nx, :])))
+        # stop_here()
+        ψx = vt[1:nx,:]
         ut = vt[nx+1:nx+nu, :]
 
         # validation
-        Xt = (xt, ht, wht, ut)
-        zt  = vcat(xt, ut)
-
+        Xt = (ψx, ht, wht, ut)
+        # zt  = vcat(xt, ut)
+        zt = vt
         return Xt, zt
     end
 

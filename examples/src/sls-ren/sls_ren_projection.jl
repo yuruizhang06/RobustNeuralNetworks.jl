@@ -114,15 +114,20 @@ output = simulate(Q, ws, x0)
 ψx = []
 ψu = []
 for i in 1:lastindex(output)
-    push!(ψx, [output[i][1]; output[i][2]; output[i][3]])
-    push!(ψu, output[i][4])
+    push!(ψx, output[i][1:nx])
+    push!(ψu, output[i][nx+1:end])
 end
 ψx = reduce(hcat, ψx)
 ψu = reduce(hcat, ψu)
 
-plot(ψx[1,:], label="ψx1")
-plot!(ψx[2,:], label="ψx2")
-plot!(ψu[1,:], label="ψu")
+plt = plot()
+for i in 1:nx
+    plot!(plt, ψx[i,:], label="ψx$i")
+end
+for i in 1:nu
+    plot!(plt, ψu[i,:], label="ψu$i")
+end
+display(plt)
 
 
 #model = Dict("Q" => Q, "Qe" => Qe)
