@@ -143,12 +143,13 @@ function validation(G::lti, Q::SystemlevelRENParams, w)
         ht, v = Qe(h_1, w_1)
         # wht = xt - v[1:nx,:]
         wht = (xt - Qe.explicit.C2[1:nx,:]*ht .- Qe.explicit.by[1:nx,:])*0.5
+        # println(mean(norm(wht)))
         hnt, vt= Qe(ht, wht) 
         # println(mean(norm(xt-vt[1:nx, :])))
         # stop_here()
         ψx = vt[1:nx,:]
-        ut = vt[nx+1:nx+nu, :]
-
+        ut = vt[nx+1:end, :]
+        # println(mean(norm(xt)))
         # validation
         Xt = (ψx, ht, wht, ut)
         # zt  = vcat(xt, ut)

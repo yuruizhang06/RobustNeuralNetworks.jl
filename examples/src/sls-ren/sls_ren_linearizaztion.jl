@@ -107,8 +107,9 @@ function simulate(model::SystemlevelRENParams, w, x0)
     model_e = REN(model)
     eval_cell = (x, u) -> model_e(x, u)
     recurrent = Flux.Recur(eval_cell, x0)
-    output = [recurrent(input) for input in w]
-    return output
+    output_direct = [recurrent(input) for input in w]
+    
+    return output_direct
 end
 output = simulate(Q, ws, x0)
 ψx = []
