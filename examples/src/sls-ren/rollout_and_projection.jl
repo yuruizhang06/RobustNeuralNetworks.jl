@@ -129,30 +129,26 @@ function rollout(G::lti, Q::SystemlevelRENParams, w)
 end
 
 function validation(G::lti, Q::SystemlevelRENParams, w)
-    Qe = REN(Q)
-    nx, nu = G.nx, G.nu
+    Qe = REN(Q) # Construction from direct parameterization
+    nx, nu = G.nx, G.nu # Dynamical system dimension
     batch = size(w[1], 2)
     X1 = (zeros(nx, batch), zeros(Qe.nx, batch), zeros(nx, batch),
-         zeros(nu, batch))
-    ψxs = zeros(1,batch)
-    ψus = zeros(1,batch)
+         zeros(nu, batch)) # Initialize the state of the REN
+    ψxs = zeros(1, batch)
+    ψus = zeros(1, batch)
 
     function f(X_1, t)
-        x_1, h_1, w_1, u_1 = X_1 
-        xt = G(x_1, u_1, w[t])
-        ht, v = Qe(h_1, w_1)
-        # wht = xt - v[1:nx,:]
+        # Unpack the state of the REN from last time step
+        x_1, h_1, w_1, u_1 = X_1 #system state, hidden state, ̂w, control input
+        xt = G(x_1, u_1, w[t]) # system state at time t
+        ht, v = Qe(h_1, w_1) # hidden state at time t
+        # ̂wt = xt - ψt
         wht = (xt - Qe.explicit.C2[1:nx,:]*ht .- Qe.explicit.by[1:nx,:])*0.5
-        # println(mean(norm(wht)))
-        hnt, vt= Qe(ht, wht) 
-        # println(mean(norm(xt-vt[1:nx, :])))
-        # stop_here()
-        ψx = vt[1:nx,:]
-        ut = vt[nx+1:end, :]
-        # println(mean(norm(xt)))
-        # validation
-        Xt = (ψx, ht, wht, ut)
-        # zt  = vcat(xt, ut)
+        # wht = x_1 -v[1:nx,:]
+        hnt, vt= Qe(ht, wht) # ψ_x and \psi_u at time t
+        ψx = vt[1:nx,:] # ψ_x at time t
+        ut = vt[nx+1:end, :] # ψ_u at time t
+        Xt = (ψx, ht, wht, ut) # Pack the state of the REN at time t
         zt = vt
         return Xt, zt
     end
