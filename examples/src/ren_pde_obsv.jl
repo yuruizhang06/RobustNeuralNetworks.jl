@@ -113,6 +113,7 @@ function train_observer!(model, data, opt; Epochs=200, regularizer=nothing, solv
         for (xni, xi, ui) in data
             model_e = REN(model)
             function calc_loss()
+                model_e = REN(model)
                 xpred = model_e(xi, ui)[1]
                 return mean(norm(xpred[:, i] - xni[:, i]).^2 for i in 1:size(xi, 2))
             end

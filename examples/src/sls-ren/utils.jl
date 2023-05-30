@@ -6,12 +6,6 @@ using MatrixEquations
 glorot_normal(n, m; rng=Random.GLOBAL_RNG) = randn(rng, n, m) / sqrt(n + m)
 glorot_normal(n; rng=Random.GLOBAL_RNG) = randn(rng, n) / sqrt(n)
 
-# mutable struct lti 
-#     nx
-#     nu 
-#     A 
-#     B 
-# end
 mutable struct lti
     A
     B

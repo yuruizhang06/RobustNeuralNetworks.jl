@@ -43,13 +43,13 @@ wv = wgen(G, vbatch, vsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (20, 50, 80, 1000, 1E-3)
+nqx, nqv, batches, Epoch, η = (30, 60, 80, 200, 1E-3)
 Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B; init = :cholesky)
 zv1 = rollout(G, Q, wv)
 Jv1 = cost(zv1)
 
-opt = ADAM(η)
-optimizer = Flux.Optimiser(ADAM(η))
+opt = ADAM()
+optimizer = Flux.Optimiser(ADAM(),ExpDecay(η))
 ps = Flux.params(Q)
 Q.direct.bx=0*Q.direct.bx 
 Q.direct.bv=0*Q.direct.bv
@@ -57,6 +57,8 @@ Q.direct.by=0*Q.direct.by
 tbatch = 100
 tsim = 50
 Jvs = [Jv1]
+# ψx = []
+# ψu = []
 
 for epoch in 1:Epoch
     # optimization
@@ -72,25 +74,25 @@ for epoch in 1:Epoch
     update!(opt, ps, ∇J)  
 
     # validation with lqr
-    zv= validation(G, Q, wt)
+    zv, ψxs, ψus= validation(G, Q, wt)
     Jv = cost(zv)
 
-    # # checking sls constraint
-    # zt, ψxs, ψus = validation(G, Q, wt)
-    # ψx = ψxs[2:end,:]
-    # ψu = ψus[2:end,:]
-    # # cosine distance and norm
-    # diff = []
-    # cos_dis = []
-    # for i in 1:tsim-1
-    #     ψxn = A*ψx[2i-1:2i,:]+ B*ψu[i,:]' + wt[i]
-    #     diff = append!(diff,ψxn-ψx[2i+1:2i+2,:])  
-    #     cos_dis= append!(cos_dis, dot(ψxn, ψx[2i+1:2i+2,:]) / (norm(ψxn)* norm(ψx[2i+1:2i+2,:])))
-    # end
+    # checking sls constraint
+    local ψx = ψxs[2:end,:]
+    local ψu = ψus[2:end,:]
+    # cosine distance and norm
+    diff = []
+    cos_dis = []
+    for i in 1:tsim-1
+        ψxn = A*ψx[(i-1)*nx+1:nx*i,:]+ B*ψu[i,:]' + wt[i]
+        diff = append!(diff,ψxn-ψx[nx*i+1:nx*(i+1),:])  
+        cos_dis= append!(cos_dis, dot(ψxn, ψx[nx*i+1:nx*(i+1),:]) 
+            / (norm(ψxn)* norm(ψx[nx*i+1:nx*(i+1),:])))
+    end
+    cosinedis = mean(cos_dis)
+    meandiff = mean(diff)
+    println("Cosine distance: $cosinedis, Mean: $meandiff")
 
-    # cosinedis = mean(cos_dis)
-    # normdiff = norm(diff)
-    # println("Cosine distance: $cosinedis, Norm: $normdiff")
     # global Jvs =[Jvs..., Jv]
     push!(Jvs, Jv)
     println("Epoch: $epoch, Jt: $J, Jr: $Jv, J0: $Jb")
@@ -99,23 +101,49 @@ end
 
 # Forward simulation
 x0 = zeros(nqx,1)
-ws = wgen(G, 1, 200, x0_lims, w_sigma; rng=rng)
-function simulate(model::SystemlevelRENParams, w, x0)
+sim = 150
+ws = wgen(G, 1, sim, x0_lims, w_sigma; rng=rng)
+
+function simulate1(model::SystemlevelRENParams, w, x0)
     model_e = REN(model)
     eval_cell = (x, u) -> model_e(x, u)
     recurrent = Flux.Recur(eval_cell, x0)
-    output = [recurrent(input) for input in w]
-    return output
+    output_direct = [recurrent(input) for input in w]
+    return output_direct
 end
-output = simulate(Q, ws, x0)
+output1 = simulate1(Q, ws, x0)
 ψx = []
 ψu = []
-for i in 1:lastindex(output)
-    push!(ψx, [output[i][1], output[i][2]])
-    push!(ψu, output[i][3])
+for i in 1:lastindex(output1)
+    push!(ψx, output1[i][1:nx])
+    push!(ψu, output1[i][nx+1:end])
 end
 ψx = reduce(hcat, ψx)
+println(maximum(ψx))
 ψu = reduce(hcat, ψu)
+println(maximum(ψu))
 
-plot(ψx[1,:], label="ψx1")
-plot!(ψx[2,:], label="ψx2")
+function simulate2(model::SystemlevelRENParams, w, G::lti)
+    zv, ψxs, ψus = validation(G, model, w)
+    local ψx = ψxs[2:end,:]
+    local ψu = ψus[2:end,:]
+    return ψx, ψu
+end
+ψxr, ψur = simulate2(Q, ws, G)
+ψxr = reshape(ψxr, (nx, sim))
+println(maximum(ψxr))
+ψur = reshape(ψur, (nu, sim))
+println(maximum(ψur))
+
+plt1 = plot()
+plt2 = plot()
+for i in 1:nx
+    plot!(plt1, ψx[i,:], label="ψx$i")
+    plot!(plt2, ψxr[i,:], label="ψx_r$i")
+end
+for i in 1:nu
+    plot!(plt1, ψu[i,:], label="ψu$i")
+    plot!(plt2, ψur[i,:], label="ψu_r$i")
+end
+display(plt1)
+display(plt2)
