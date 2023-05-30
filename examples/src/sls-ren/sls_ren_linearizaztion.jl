@@ -78,7 +78,6 @@ for epoch in 1:Epoch
     Jv = cost(zv)
 
     # checking sls constraint
-    # zt, ψxs, ψus = validation(G, Q, wt)
     local ψx = ψxs[2:end,:]
     local ψu = ψus[2:end,:]
     # cosine distance and norm
@@ -102,30 +101,49 @@ end
 
 # Forward simulation
 x0 = zeros(nqx,1)
-ws = wgen(G, 1, 200, x0_lims, w_sigma; rng=rng)
-function simulate(model::SystemlevelRENParams, w, x0)
+sim = 150
+ws = wgen(G, 1, sim, x0_lims, w_sigma; rng=rng)
+
+function simulate1(model::SystemlevelRENParams, w, x0)
     model_e = REN(model)
     eval_cell = (x, u) -> model_e(x, u)
     recurrent = Flux.Recur(eval_cell, x0)
     output_direct = [recurrent(input) for input in w]
-    
     return output_direct
 end
-output = simulate(Q, ws, x0)
+output1 = simulate1(Q, ws, x0)
 ψx = []
 ψu = []
-for i in 1:lastindex(output)
-    push!(ψx, output[i][1:nx])
-    push!(ψu, output[i][nx+1:end])
+for i in 1:lastindex(output1)
+    push!(ψx, output1[i][1:nx])
+    push!(ψu, output1[i][nx+1:end])
 end
 ψx = reduce(hcat, ψx)
+println(maximum(ψx))
 ψu = reduce(hcat, ψu)
+println(maximum(ψu))
 
-plt = plot()
+function simulate2(model::SystemlevelRENParams, w, G::lti)
+    zv, ψxs, ψus = validation(G, model, w)
+    local ψx = ψxs[2:end,:]
+    local ψu = ψus[2:end,:]
+    return ψx, ψu
+end
+ψxr, ψur = simulate2(Q, ws, G)
+ψxr = reshape(ψxr, (nx, sim))
+println(maximum(ψxr))
+ψur = reshape(ψur, (nu, sim))
+println(maximum(ψur))
+
+plt1 = plot()
+plt2 = plot()
 for i in 1:nx
-    plot!(plt, ψx[i,:], label="ψx$i")
+    plot!(plt1, ψx[i,:], label="ψx$i")
+    plot!(plt2, ψxr[i,:], label="ψx_r$i")
 end
 for i in 1:nu
-    plot!(plt, ψu[i,:], label="ψu$i")
+    plot!(plt1, ψu[i,:], label="ψu$i")
+    plot!(plt2, ψur[i,:], label="ψu_r$i")
 end
-display(plt)
+display(plt1)
+display(plt2)
