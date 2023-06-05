@@ -43,7 +43,7 @@ wv = wgen(G, vbatch, vsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (30, 60, 80, 200, 1E-3)
+nqx, nqv, batches, Epoch, η = (30, 60, 80, 200, 1E-4)
 Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B; init = :cholesky)
 zv1 = rollout(G, Q, wv)
 Jv1 = cost(zv1)
@@ -51,9 +51,9 @@ Jv1 = cost(zv1)
 opt = ADAM()
 optimizer = Flux.Optimiser(ADAM(),ExpDecay(η))
 ps = Flux.params(Q)
-Q.direct.bx=0*Q.direct.bx 
-Q.direct.bv=0*Q.direct.bv
-Q.direct.by=0*Q.direct.by
+# Q.direct.bx=0*Q.direct.bx 
+# Q.direct.bv=0*Q.direct.bv
+# Q.direct.by=0*Q.direct.by
 tbatch = 100
 tsim = 50
 Jvs = [Jv1]

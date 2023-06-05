@@ -1,5 +1,5 @@
 using JuMP
-using MosekTools
+# using MosekTools
 using RobustNeuralNetworks
 
 includet("./utils.jl")
@@ -43,7 +43,7 @@ function validation(G::lti, Q::ContractingRENParams, w)
         # wht = xt - v[1:nx,:]
         wht = (xt - Qe.explicit.C2[1:nx,:]*ht .- Qe.explicit.by[1:nx,:])*0.5
         hnt, vt= Qe(ht, wht) 
-        # println(mean(norm(xt-vt[1:nx, :])))
+        
         # stop_here()
         ψx = vt[1:nx,:]
         ut = vt[nx+1:nx+nu, :]
