@@ -5,7 +5,7 @@ Pkg.activate("../../")
 using Revise
 using Flux
 using Flux.Optimise:update!
-using Flux.Optimise:ADAMu
+using Flux.Optimise:ADAM
 using Zygote
 using LinearAlgebra
 using Random
@@ -21,14 +21,14 @@ includet("./rollout_and_projection.jl")
 rng = StableRNG(0)
 vbatch = 200
 vsim = 40
-A = [1.5 0.5 1 2; 0 1 2 3; 2 3 1 3; 1 2 3 1]
-B = [1; 0; 1; 0.3]
-C = [1 0 0 0]
-L = [10, 5, 1 ,5, 1]
-# A = [1.5 0.5 1; 0 1 2; 2 3 1]
-# B = [1; 0.0; 1]
-# C = [1 0 0]
-# L = [10, 5, 1]
+# A = [1.5 0.5 1 2; 0 1 2 3; 2 3 1 3; 1 2 3 1]
+# B = [1; 0; 1; 0.3]
+# C = [1 0 0 0]
+# L = [10, 5, 1 ,5, 1]
+A = [1.5 0.5; 3 0.7]
+B = [1; 0.0]
+C = [1 0 ]
+L = [10, 5, 1]
 G = lti(A, B, C)
 nx = G.nx
 nu = G.nu
@@ -73,7 +73,8 @@ for epoch in 1:Epoch
     ∇J = back(one(J)) 
     update!(opt, ps, ∇J)  
 
-    # validation with lqr
+    # zs = rollout(G, Q, wt)
+    # Js = cost(zs)
     zv, ψxs, ψus= validation(G, Q, wt)
     Jv = cost(zv)
 
