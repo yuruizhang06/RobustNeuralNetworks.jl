@@ -116,7 +116,6 @@ function rollout(G::lti, Q::SystemlevelRENParams, w)
         ht, ψt = Qe(h_1, w[t])
         # ψx = ψt[1:nx,:]
         # ψu = ψt[nx+1:nx+nu,:]
-        # validation
         Xt = ht
         zt  = ψt
         return Xt, zt
@@ -141,15 +140,15 @@ function validation(G::lti, Q::SystemlevelRENParams, w)
         # Unpack the state of the REN from last time step
         x_1, h_1, w_1, u_1 = X_1 #system state, hidden state, ̂w, control input
         xt = G(x_1, u_1, w[t]) # system state at time t
-        ht, v = Qe(h_1, w_1) # hidden state at time t
+        ht, ψ = Qe(h_1, w_1) # hidden state at time t
         # ̂wt = xt - ψt
-        wht = (xt - Qe.explicit.C2[1:nx,:]*ht .- Qe.explicit.by[1:nx,:])*0.5
-        # wht = x_1 -v[1:nx,:]
-        hnt, vt= Qe(ht, wht) # ψ_x and \psi_u at time t
-        ψx = vt[1:nx,:] # ψ_x at time t
-        ut = vt[nx+1:end, :] # ψ_u at time t
-        Xt = (ψx, ht, wht, ut) # Pack the state of the REN at time t
-        zt = vt
+        wht = xt - Qe.explicit.C2[1:nx,:]*ht .- Qe.explicit.by[1:nx,:]
+        # wht = x_1 -ψ[1:nx,:]
+        hnt, ψt= Qe(ht, wht) # ψ_x and \psi_u at time t
+        # ψx = ψt[1:nx,:] # ψ_x at time t
+        ut = ψt[nx+1:end, :] # ψ_u at time t
+        Xt = (xt, hnt, wht, ut) # Pack the state of the REN at time t
+        zt = ψt
         return Xt, zt
     end
 

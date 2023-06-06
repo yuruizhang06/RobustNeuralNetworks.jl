@@ -5,7 +5,7 @@ Pkg.activate("../../")
 using Revise
 using Flux
 using Flux.Optimise:update!
-using Flux.Optimise:ADAM
+using Flux.Optimise:ADAMu
 using Zygote
 using LinearAlgebra
 using Random
