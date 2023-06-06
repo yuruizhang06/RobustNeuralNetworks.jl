@@ -1,6 +1,7 @@
 using Distributions
 using Random
 using MatrixEquations
+using StableRNGs
 
 # utility
 glorot_normal(n, m; rng=Random.GLOBAL_RNG) = randn(rng, n, m) / sqrt(n + m)
