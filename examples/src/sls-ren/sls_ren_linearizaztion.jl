@@ -21,14 +21,14 @@ includet("./rollout_and_projection.jl")
 rng = StableRNG(0)
 vbatch = 200
 vsim = 40
-# A = [1.5 0.5 1 2; 0 1 2 3; 2 3 1 3; 1 2 3 1]
-# B = [1; 0; 1; 0.3]
-# C = [1 0 0 0]
-# L = [10, 5, 1 ,5, 1]
-A = [1.5 0.5; 3 0.7]
-B = [1; 0.0]
-C = [1 0 ]
-L = [10, 5, 1]
+A = [1.5 0.5 1; 0 1 2; 2 3 1]
+B = [1; 0; 1.1]
+C = [1 0 0]
+L = [10, 1 ,5, 1]
+# A = [1.5 0.5; 3 0.7]
+# B = [1; 0.0]
+# C = [1 0 ]
+# L = [10, 5, 1]
 G = lti(A, B, C)
 nx = G.nx
 nu = G.nu
@@ -43,8 +43,8 @@ wv = wgen(G, vbatch, vsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (30, 60, 80, 200, 1E-4)
-Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B; init = :cholesky)
+nqx, nqv, batches, Epoch, η = (30, 60, 80, 200, 1E-3)
+Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B; polar_param = :false, init = :cholesky)
 zv1 = rollout(G, Q, wv)
 Jv1 = cost(zv1)
 
@@ -79,8 +79,8 @@ for epoch in 1:Epoch
     Jv = cost(zv)
 
     # checking sls constraint
-    local ψx = ψxs[2:end,:]
-    local ψu = ψus[2:end,:]
+    local ψx = ψxs
+    local ψu = ψus
     # cosine distance and norm
     diff = []
     cos_dis = []
@@ -126,8 +126,8 @@ println(maximum(ψu))
 
 function simulate2(model::SystemlevelRENParams, w, G::lti)
     zv, ψxs, ψus = validation(G, model, w)
-    local ψx = ψxs[2:end,:]
-    local ψu = ψus[2:end,:]
+    local ψx = ψxs
+    local ψu = ψus
     return ψx, ψu
 end
 ψxr, ψur = simulate2(Q, ws, G)
