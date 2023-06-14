@@ -133,7 +133,7 @@ function rollout(G::lti, Q::SystemlevelRENParams, w)
         ψus = vcat(ψus, z[i][nx+1:nx+nu,:])
     end
 
-    return z#, ψxs[2:end,:], ψus[2:end,:]
+    return z, ψxs[2:end,:], ψus[2:end,:]
 end
 
 function validation(G::lti, Q::SystemlevelRENParams, w)

@@ -21,31 +21,37 @@ includet("./rollout_and_projection.jl")
 """
 Test system level constraints
 """
-batches = 100
-nx, nv = 10, 20
+batches = 1
+nx, nv = 100, 20
 # T = 100
 
-A = [1 2.1 5; 3 4 7;5 6 1]
-B = [0; 1.1; 1]
-C = [1, 0, 0]
+# A = [1 2.1 3; 3 2 7;5 10 1]
+# B = [0; 1.1; 1]
+# C = [1, 0, 0]
+# L = [10, 5, 1, 1]
+
+A = [1 2.1 3 4 3; 3 4 2 1 2; 2 3 1 2 1; 4 3 2 1 2; 2 3 4 5 6]
+B = [0; 1.1; 1; 0; 1]
+C = [1, 0, 0, 0, 0]
+L = [10, 5, 5, 5, 1, 1]
+
 G =lti(A,B,C)
-L = [10, 5, 1, 1]
-
-# A = [1 2.1 3 4; 3 4 2 1; 2 3 1 2; 4 3 2 5]
-# B = [0; 1.1;1;0]
-# C = [1, 0, 0, 0]
-# G =lti(A,B,C)
-# L = [10, 5, 5, 1, 1]
-
-# println(rank(ctrb(A, B)))
+println(rank(ctrb(A, B)))
 # Test constructors
 ren_ps = SystemlevelRENParams{Float64}(nx, nv, A, B; polar_param = :false, init = :cholesky)
+# ren_ps.direct.X = 0.5*ren_ps.direct.X
+
+
 ren = REN(ren_ps)
+# ren.explicit.A = 2*ren.explicit.A
+# ren_ps.direct.bx=0*ren_ps.direct.bx 
+# ren_ps.direct.bv=0*ren_ps.direct.bv
+# ren_ps.direct.by=0*ren_ps.direct.by
 
 # Generate random noise
 sim = 30
 x0_lims = ones(size(A,1),1)
-w_sigma = 0.0*ones(size(A,1),1)
+w_sigma = 1.0*ones(size(A,1),1)
 ws = wgen(G, batches, sim, x0_lims, w_sigma)
 
 w_1 = zeros(size(A,1), batches)
@@ -106,20 +112,41 @@ hr3, ψr2 = ren(hr2, wh2)
 diff1 = ψx2 - A*ψx1 - B*ψu1
 diff2 = ψxr2 - X2 
 diff3 = ψx2 - X2
-println(norm(diff2))
-println(norm(diff3))
+diff4 = ψxr2 - A*ψxr1 - B*ψur1
+# println(norm(diff1))
+# println(norm(diff2))
+# println(norm(diff3))
+# println(norm(diff4))
 
 _cost(zt) = mean(sum(L .* zt.^2; dims=1))
 cost(z) = mean(_cost.(z))
 
-# println(ws)
-z = rollout(G, ren_ps, ws)
-# println(ψxs)
-# println(ψus)
+z, ψx, ψu = rollout(G, ren_ps, ws)
+ψx_1 = reshape(ψx[:,1], (G.nx, sim))
+ψu_1 = reshape(ψu[:,1], (G.nu, sim))
 J = cost(z)
 zv, ψxr, ψur= validation(G, ren_ps, ws)
+ψx_2 = reshape(ψxr[:,1], (G.nx, sim))
+ψu_2 = reshape(ψur[:,1], (G.nu, sim))
 Jv = cost(zv)
 println(J-Jv)
+# println(ψxs)
+# println(ψus)
 # println(ψxr)
 # println(ψur)
+# println(norm(ψx_1-ψx_2))
 # Xt = G.A*ψxr[1:size(A,1),:] + G.B*ψur[1] + ws[2]
+plt1 = plot()
+plt2 = plot()
+for i in 1:G.nx
+    plot!(plt1, ψx_1[i,:], label="ψx$i")
+    plot!(plt2, ψx_2[i,:], label="ψx_r$i")
+    # println(norm(ψxr[i,:]-ψx[i,:]))
+end
+for i in 1:G.nu
+    plot!(plt1, ψu_1[i,:], label="ψu$i")
+    plot!(plt2, ψu_2[i,:], label="ψu_r$i")
+    # println(norm(ψur[i,:]-ψu[i,:]))
+end
+display(plt1)
+display(plt2)

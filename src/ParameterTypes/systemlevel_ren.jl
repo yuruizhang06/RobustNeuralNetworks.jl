@@ -18,7 +18,7 @@ function SystemlevelRENParams{T}(
     nl::Function = Flux.relu, 
     αbar::T = T(1),
     init = :random,
-    polar_param::Bool = true,
+    polar_param::Bool = false,
     bx_scale::T = T(0), 
     bv_scale::T = T(1), 
     ϵ::T = T(1e-12), 
@@ -27,13 +27,13 @@ function SystemlevelRENParams{T}(
     
     nu = size(A,1)
     ny = size(A,1)+size(B,2)
-    y = zeros(nx*size(A,1)+nx*size(B,2)+nv*size(B,2)+size(A,1)*size(B,2)+size(A,1)+size(B,2))
+    y = glorot_normal(nx*size(A,1)+nx*size(B,2)+nv*size(B,2)+size(A,1)*size(B,2)+size(A,1)+size(B,2))
 
     # Direct (implicit) params
     direct_ps = DirectRENParams{T}(
         nu, nx, nv, ny; 
         init=init, ϵ=ϵ, bx_scale=bx_scale, bv_scale=bv_scale, 
-        polar_param=polar_param, D22_free=false, rng=rng
+        polar_param=polar_param, D22_free=true, rng=rng
     )
 
     return SystemlevelRENParams{T}(nl, nu, nx, nv, ny, direct_ps, αbar, A, B, y)
@@ -44,6 +44,7 @@ end
 
 function systemlevel_trainable(L::DirectRENParams, y::Vector)
     ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv, y]
+    # ps = [L.X, L.Y1, L.B2, L.D12, L.bx, L.bv, y]
     !(L.polar_param) && popfirst!(ps)
     return filter(p -> length(p) !=0, ps)
 end
@@ -104,20 +105,25 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}, return_h=false) where T
         zeros(nv*nX,nX*nU+nX+nU))
     ℍ3 = hcat(kron(B2',Matrix(I,nX,nX)), zeros(nX*nX,nx*nU+nv*nU), -kron(Matrix(I,nX,nX),ps.B),
         zeros(nX*nX,nX+nU))
-    ℍ4 = hcat(kron(ps.direct.bx',Matrix(I,nX,nX)), zeros(nX,nx*nU+nv*nU+nX*nU), I-ps.A, -ps.B)
+    ℍ4 = hcat(kron(bx',Matrix(I,nX,nX)), zeros(nX,nx*nU+nv*nU+nX*nU), I-ps.A, -ps.B)
 
     ℍ = vcat(ℍ1,ℍ2,ℍ3,ℍ4)
+    # println(cond(ℍ))
+    # println(rank(ℍ))
+    # println(size(ℍ))
 
     𝕗 = vcat(zeros(nx*nX+nv*nX),vec(ps.A),zeros(nX))
-    
+    # println(size(𝕗))
+
     𝕘 = pinv(ℍ)*𝕗+(I-pinv(ℍ)*ℍ)*ps.y
+    # println(size(𝕘))
 
     # recover explicit parameters
     C2 = vcat(reshape(𝕘[1:nx*nX],nX,nx),reshape(𝕘[nx*nX+1:nx*nX+nx*nU],nU,nx))
     D21 = vcat(zeros(nX,nv), reshape(𝕘[nx*nX+nx*nU+1:nx*nX+nx*nU+nv*nU],nU,nv))
     D22 = vcat(Matrix(I,nX,nX), reshape(𝕘[nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU],nU,nX))
     by = 𝕘[nx*nX+nx*nU+nv*nU+nX*nU+1:end]
-    
+    # println(norm(ℍ*𝕘-𝕗))
     !return_h && (return ExplicitRENParams{T}(A, B1, B2, C1, C2, D11, D12, D21, D22, bx, bv, by))
     return ℍ, 𝕗, 𝕘 
 end
