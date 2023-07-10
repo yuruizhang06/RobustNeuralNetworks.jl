@@ -103,6 +103,7 @@ export direct_to_explicit
 export init_states
 export set_output_zero!
 export update_explicit!
+export explicit_to_H
 
 # Extended functions
 # TODO: Need to export things like gpu, cpu, ==, etc.

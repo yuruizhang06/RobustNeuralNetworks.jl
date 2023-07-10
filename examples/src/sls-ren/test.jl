@@ -12,44 +12,95 @@ using Random
 using StableRNGs
 using Plots
 using ControlSystems
+using BSON
 
 using RobustNeuralNetworks
 
 # include("../test_utils.jl")
 includet("./utils.jl")
 includet("./rollout_and_projection.jl")
+# includet("./sls_ren_linearizaztion.jl")
 """
 Test system level constraints
 """
 batches = 1
-nx, nv = 100, 20
+nx, nv = 1,2
 # T = 100
 
-# A = [1 2.1 3; 3 2 7;5 10 1]
-# B = [0; 1.1; 1]
-# C = [1, 0, 0]
-# L = [10, 5, 1, 1]
+A = [1.5 0.5; 0 1]
+B = [1.1; 0.1]
+C = [1 0]
+L = [1 ,1, 1]
 
-A = [1 2.1 3 4 3; 3 4 2 1 2; 2 3 1 2 1; 4 3 2 1 2; 2 3 4 5 6]
-B = [0; 1.1; 1; 0; 1]
-C = [1, 0, 0, 0, 0]
-L = [10, 5, 5, 5, 1, 1]
+# A = [1.5 0.5 2 3; 3 0.7 4 1; 3 6 4 2; 7 6 0 1]
+# B = [1; 0.0; 1.1; 0.5]
+# C = [1 0 0 0]
+# L = [1, 1, 1, 1, 1]
+
+# A = [1 2.1 3 4 3; 3 4 2 1 2; 2 3 1 2 1; 4 3 2 1 2; 2 3 4 5 6]
+# B = [0; 1.1; 1; 0; 1]
+# C = [1, 0, 0, 0, 0]
+# L = [1, 5, 5, 5, 1, 1]
+# A = [1.0]
+# B = [1.0]
+# C = [1.0]
+# L = [1.0]
+
 
 G =lti(A,B,C)
-println(rank(ctrb(A, B)))
+# println(rank(ctrb(A, B)))
 # Test constructors
-ren_ps = SystemlevelRENParams{Float64}(nx, nv, A, B; polar_param = :false, init = :cholesky)
-# ren_ps.direct.X = 0.5*ren_ps.direct.X
-
-
+# X = BSON.load("stableX.bson")[:X]
+ren_ps = SystemlevelRENParams{Float64}(nx, nv, A, B; polar_param = :true, init = :random)
+# ren_ps.direct.X = ren_ps.direct.X-I
+# println(X-ren_ps.direct.X)
+left = nv*G.nx + G.nx*G.nx
+right = nx*G.nu + nv*G.nu + G.nx*G.nu + G.nu
+if left>=right
+    println("The number of parameters is not enough!")
+    # stop_here()
+end
+# ren_ps.direct.B2[1:G.nx, 1:G.nx] = G.A
+# println(ren_ps.direct.bx)
 ren = REN(ren_ps)
+# println(ren.explicit.bx)
+
+
 # ren.explicit.A = 2*ren.explicit.A
 # ren_ps.direct.bx=0*ren_ps.direct.bx 
 # ren_ps.direct.bv=0*ren_ps.direct.bv
 # ren_ps.direct.by=0*ren_ps.direct.by
 
+H, f, g = explicit_to_H(ren_ps, ren.explicit, true)
+println(rank(H))
+println(rank(hcat(H,f)))
+# stop_here()
+println(size(H))
+println(norm(H*g-f))
+# stop_here()
+# count = 0
+# for i in 1:size(H, 2)
+#     if rank(H[:, 1:i]) < i-count
+#         # rank_indices = i
+#         global count += 1
+#         println(i)
+#     end
+# end
+stop_here()
+# count2 = 0
+# for i in 1:size(H, 1)
+#     if rank(hcat(H,f)[1:i, :]) < i-count2
+#         # rank_indices = i
+#         global count2 += 1
+#         println(i)
+#     end
+# end
+
+# println(rank(kron(ren.explicit.B2', Matrix(I, G.nx, G.nx))))  
+# println(rank(hcat(H,f)[1:30,:]))
+# println(rank(H[1:30,:]))
 # Generate random noise
-sim = 30
+sim = 150
 x0_lims = ones(size(A,1),1)
 w_sigma = 1.0*ones(size(A,1),1)
 ws = wgen(G, batches, sim, x0_lims, w_sigma)
@@ -71,21 +122,24 @@ h_1 = zeros(nx, batches)
 wh_1= zeros(size(A,1), batches)
 h0, ψ_1 = ren(h_1, w_1)
 
-# t = 0
+# t = 0\
 X0 = A*X_1 + B*U_1 + w0
-h1, ψ0 = ren(h0, w0)
-# stop_here()
-ψx0 = ψ0[1:size(A,1),:]
-ψu0 = ψ0[size(A,1)+1:end,:]
-# println(ψx0)
+
 hr0, ψr_1 = ren(h_1, wh_1)
 wh0 = X0 - ren.explicit.C2[1:size(A,1),:]*hr0 .- ren.explicit.by[1:size(A,1),:]
 hr1, ψr0 = ren(hr0, wh0)
 ψur0 = ψr0[size(A,1)+1:end,:]
 ψxr0 = ψr0[1:size(A,1),:]
+
+h1, ψ0 = ren(h0, wh0)
+# stop_here()
+ψx0 = ψ0[1:size(A,1),:]
+ψu0 = ψ0[size(A,1)+1:end,:]
+# println(ψx0)
+
 # println(ψxr0)
 # t = 1
-X1 = A*X0 + B*ψur0 +w1
+X1 = A*X0 + B*ψur0 + w1
 h2, ψ1 = ren(h1, w1)
 ψx1 = ψ1[1:size(A,1),:]
 ψu1 = ψ1[size(A,1)+1:end,:]
@@ -97,26 +151,36 @@ hr2, ψr1 = ren(hr1, wh1)
 ψxr1 = ψr1[1:size(A,1),:]
 # println(ψxr1)
 # t = 2
-X2 = A*X1 + B*ψur1 +w2
+X2 = A*X1 + B*ψur1 + w2
 h3, ψ2 = ren(h2, w2)
 ψx2 = ψ2[1:size(A,1),:]
 ψu2 = ψ2[size(A,1)+1:end,:]
 # println(ψx2)
 # hr2, ψr1 = ren(hr1, wh1)
 wh2 = X2 - ren.explicit.C2[1:size(A,1),:]*hr2 .- ren.explicit.by[1:size(A,1),:]
+# println(norm(wh2-w2))
 hr3, ψr2 = ren(hr2, wh2)
 ψur2 = ψr2[size(A,1)+1:end,:]
 ψxr2 = ψr2[1:size(A,1),:]
 # println(ψxr2)
 # Validation for the system level constraints
-diff1 = ψx2 - A*ψx1 - B*ψu1
-diff2 = ψxr2 - X2 
-diff3 = ψx2 - X2
-diff4 = ψxr2 - A*ψxr1 - B*ψur1
+# diff1 = ψx2 - A*ψx1 - B*ψu1 - w2
+# diff2 = ψxr2 - X2 
+# diff3 = ψx2 - X2
+# diff4 = ψxr2 - A*ψxr1 - B*ψur1 - w2
+# diff5 = ψxr2 - A*X1 - B*ψu1 - w2
+# diff6 = ψx2 - A*X1 - B*ψur1 - w2
+# diff7 = X2 - A*X1 - B*ψur1 - w2
+# diff8 = ψxr0- ψx0 
 # println(norm(diff1))
 # println(norm(diff2))
 # println(norm(diff3))
 # println(norm(diff4))
+# println(norm(diff5))
+# println(norm(diff6))
+# println(norm(diff7))
+# println(norm(diff8))
+# println(H[30,:])
 
 _cost(zt) = mean(sum(L .* zt.^2; dims=1))
 cost(z) = mean(_cost.(z))
@@ -124,29 +188,34 @@ cost(z) = mean(_cost.(z))
 z, ψx, ψu = rollout(G, ren_ps, ws)
 ψx_1 = reshape(ψx[:,1], (G.nx, sim))
 ψu_1 = reshape(ψu[:,1], (G.nu, sim))
-J = cost(z)
+J_ = cost(z)
 zv, ψxr, ψur= validation(G, ren_ps, ws)
 ψx_2 = reshape(ψxr[:,1], (G.nx, sim))
 ψu_2 = reshape(ψur[:,1], (G.nu, sim))
-Jv = cost(zv)
-println(J-Jv)
+Jv_ = cost(zv)
+# println(J_-Jv_)
+# println(J_)
 # println(ψxs)
 # println(ψus)
 # println(ψxr)
 # println(ψur)
-# println(norm(ψx_1-ψx_2))
+# println(norm(ψu_1-ψu_2))
 # Xt = G.A*ψxr[1:size(A,1),:] + G.B*ψur[1] + ws[2]
 plt1 = plot()
 plt2 = plot()
+plt3 = plot()
 for i in 1:G.nx
     plot!(plt1, ψx_1[i,:], label="ψx$i")
     plot!(plt2, ψx_2[i,:], label="ψx_r$i")
+    plot!(plt3, ψx_1[i,:]-ψx_2[i,:], label="diffx$i")
     # println(norm(ψxr[i,:]-ψx[i,:]))
 end
 for i in 1:G.nu
     plot!(plt1, ψu_1[i,:], label="ψu$i")
     plot!(plt2, ψu_2[i,:], label="ψu_r$i")
+    plot!(plt3, ψu_2[i,:]-ψu_2[i,:], label="diffu$i")
     # println(norm(ψur[i,:]-ψu[i,:]))
 end
 display(plt1)
 display(plt2)
+display(plt3)
