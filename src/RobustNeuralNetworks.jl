@@ -1,16 +1,24 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 module RobustNeuralNetworks
 
 ############ Package dependencies ############
 
-using Flux
+using ChainRulesCore: NoTangent, @non_differentiable
+using Flux: relu, identity, @functor
 using LinearAlgebra
-using MatrixEquations: lyapd, plyapd
 using Random
-using Zygote: pullback, Buffer
-using Zygote: @adjoint
+using Zygote: Buffer
 
 import Base.:(==)
-import Flux.gpu, Flux.cpu
+import ChainRulesCore: rrule
+import Flux: trainable, glorot_normal
+
+# Note: to remove explicit dependency on Flux.jl, use the following
+#   using Functors: @functor
+#   using NNlib: relu, identity
+#   import Optimisers.trainable
+# and re-write `glorot_normal` yourself.
 
 
 ############ Abstract types ############
@@ -63,6 +71,8 @@ include("Wrappers/LBDN/lbdn.jl")
 include("Wrappers/LBDN/diff_lbdn.jl")
 include("Wrappers/LBDN/sandwich_fc.jl")
 
+include("Wrappers/utils.jl")
+
 
 ############ Exports ############
 
@@ -100,12 +110,10 @@ export SandwichFC
 
 # Functions
 export direct_to_explicit
+export get_lipschitz
 export init_states
 export set_output_zero!
 export update_explicit!
 export explicit_to_H
-
-# Extended functions
-# TODO: Need to export things like gpu, cpu, ==, etc.
 
 end # end RobustNeuralNetworks

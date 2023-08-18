@@ -1,3 +1,5 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 """
     mutable struct ExplicitLBDNParams{T, N, M}
 
@@ -5,13 +7,14 @@ Explicit LBDN parameter struct.
 
 These parameters define the explicit form of a Lipschitz-bounded deep network used for model evaluation. Parameters are stored in `NTuple`s, where each element of an `NTuple` is the parameter for a single layer of the network. Tuples are faster to work with than vectors of arrays.
 
-See [Wang et al. (2023)](https://doi.org/10.48550/arXiv.2301.11526) for more details on explicit parameterisations of LBDN.
+See [Wang et al. (2023)](https://proceedings.mlr.press/v202/wang23v.html) for more details on explicit parameterisations of LBDN.
 """
 mutable struct ExplicitLBDNParams{T, N, M}
-    A_T::NTuple{N, AbstractMatrix{T}}    # A^T in the paper
+    A_T::NTuple{N, AbstractMatrix{T}}   # A^T in the paper
     B  ::NTuple{N, AbstractMatrix{T}}
-    Ψd ::NTuple{M, AbstractVector{T}}    # Diagonal of matrix Ψ from the paper
+    Ψd ::NTuple{M, AbstractVector{T}}   # Diagonal of matrix Ψ from the paper
     b  ::NTuple{N, AbstractVector{T}}
+    sqrtγ::T
 end
 
 mutable struct DirectLBDNParams{T, N, M}
@@ -19,10 +22,12 @@ mutable struct DirectLBDNParams{T, N, M}
     α ::NTuple{N, AbstractVector{T}}    # Polar parameterisation
     d ::NTuple{M, AbstractVector{T}}
     b ::NTuple{N, AbstractVector{T}}
+    log_γ::Vector{T}                    # Store ln(γ) so that √exp(logγ) is positive
+    learn_γ::Bool
 end
 
 """
-    DirectLBDNParams{T}(nu, nh, ny; <keyword arguments>) where T
+    DirectLBDNParams{T}(nu, nh, ny, γ; <keyword arguments>) where T
 
 Construct direct parameterisation for a Lipschitz-bounded deep network.
 
@@ -33,6 +38,7 @@ This is typically used by a higher-level constructor to define an LBDN model, wh
 - `nu::Int`: Number of inputs.
 - `nh::Vector{Int}`: Number of hidden units for each layer. Eg: `nh = [5,10]` for 2 hidden layers with 5 and 10 nodes (respectively).
 - `ny::Int`: Number of outputs.
+- `γ::Number=T(1)`: Lipschitz upper bound.
 
 # Keyword arguments
 
@@ -40,16 +46,19 @@ This is typically used by a higher-level constructor to define an LBDN model, wh
 
 - `initb::Function=Flux.glorot_normal`: Initialisation function for bias vectors.
 
+- `learn_γ::Bool=false:` Whether to make the Lipschitz bound γ a learnable parameter.
+
 - `rng::AbstractRNG = Random.GLOBAL_RNG`: rng for model initialisation.
 
-See [Wang et al. (2023)](https://doi.org/10.48550/arXiv.2301.11526) for parameterisation details.
+See [Wang et al. (2023)](https://proceedings.mlr.press/v202/wang23v.html) for parameterisation details.
 
 See also [`DenseLBDNParams`](@ref).
 """
 function DirectLBDNParams{T}(
-    nu::Int, nh::Vector{Int}, ny::Int;
-    initW::Function = Flux.glorot_normal,
-    initb::Function = Flux.glorot_normal,
+    nu::Int, nh::Vector{Int}, ny::Int, γ::Number = T(1);
+    initW::Function  = glorot_normal,
+    initb::Function  = glorot_normal,
+    learn_γ::Bool    = false,
     rng::AbstractRNG = Random.GLOBAL_RNG
 ) where T
 
@@ -68,12 +77,20 @@ function DirectLBDNParams{T}(
         (k<L+1) && (d[k] = initW(rng, n[k+1]))
     end
 
-    return DirectLBDNParams{T,L+1,L}(tuple(XY...), tuple(α...), tuple(d...), tuple(b...))
-
+    log_γ = [T(log(γ))]
+    return DirectLBDNParams{T,L+1,L}(
+        tuple(XY...), tuple(α...), tuple(d...), tuple(b...), log_γ, learn_γ
+    )
 end
 
-Flux.@functor DirectLBDNParams (XY, α, d, b)
-
+@functor DirectLBDNParams
+function trainable(m::DirectLBDNParams)
+    if m.learn_γ
+        return (XY=m.XY, α=m.α, d=m.d, b=m.b, log_γ=m.log_γ)
+    else 
+        return (XY=m.XY, α=m.α, d=m.d, b=m.b)
+    end
+end
 
 # TODO: Should add compatibility for layer-wise options
 # Eg:

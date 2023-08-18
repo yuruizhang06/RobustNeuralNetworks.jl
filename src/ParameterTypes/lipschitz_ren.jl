@@ -1,3 +1,5 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 mutable struct LipschitzRENParams{T} <: AbstractRENParams{T}
     nl::Function                # Sector-bounded nonlinearity
     nu::Int
@@ -6,7 +8,8 @@ mutable struct LipschitzRENParams{T} <: AbstractRENParams{T}
     ny::Int
     direct::DirectRENParams{T}
     αbar::T
-    γ::T
+    γ::Vector{T}
+    learn_γ::Bool
 end
 
 """
@@ -23,9 +26,11 @@ Construct direct parameterisation of a REN with a Lipschitz bound of γ.
     
 # Keyword arguments
 
-- `nl::Function=Flux.relu`: Sector-bounded static nonlinearity.
+- `nl::Function=relu`: Sector-bounded static nonlinearity.
 
 - `αbar::T=1`: Upper bound on the contraction rate with `ᾱ ∈ (0,1]`.
+
+- `learn_γ::Bool=false:` Whether to make the Lipschitz bound γ a learnable parameter.
 
 See [`DirectRENParams`](@ref) for documentation of keyword arguments `init`, `ϵ`, `bx_scale`, `bv_scale`, `polar_param`, `D22_zero`, `rng`.
 
@@ -33,15 +38,16 @@ See also [`GeneralRENParams`](@ref), [`ContractingRENParams`](@ref), [`PassiveRE
 """
 function LipschitzRENParams{T}(
     nu::Int, nx::Int, nv::Int, ny::Int, γ::Number;
-    nl::Function = Flux.relu, 
-    αbar::T = T(1),
-    init = :random,
+    nl::Function      = relu, 
+    αbar::T           = T(1),
+    learn_γ::Bool     = false,
+    init              = :random,
     polar_param::Bool = true,
-    bx_scale::T = T(0), 
-    bv_scale::T = T(1), 
-    ϵ::T = T(1e-12), 
-    D22_zero = false,
-    rng::AbstractRNG = Random.GLOBAL_RNG
+    bx_scale::T       = T(0), 
+    bv_scale::T       = T(1), 
+    ϵ::T              = T(1e-12), 
+    D22_zero          = false,
+    rng::AbstractRNG  = Random.GLOBAL_RNG
 ) where T
 
     # If D22 fixed at 0, it should not be constructed from other
@@ -51,31 +57,17 @@ function LipschitzRENParams{T}(
     # Direct (implicit) params
     direct_ps = DirectRENParams{T}(
         nu, nx, nv, ny; 
-        init=init, ϵ=ϵ, bx_scale=bx_scale, bv_scale=bv_scale, 
-        polar_param=polar_param, D22_free=D22_free, D22_zero=D22_zero,
-        rng=rng
+        init, ϵ, bx_scale, bv_scale, polar_param, 
+        D22_free, D22_zero, rng,
     )
 
-    return LipschitzRENParams{T}(nl, nu, nx, nv, ny, direct_ps, αbar, T(γ))
+    return LipschitzRENParams{T}(nl, nu, nx, nv, ny, direct_ps, αbar, [T(γ)], learn_γ)
 
 end
 
-Flux.@functor LipschitzRENParams (direct,)
-
-function Flux.gpu(m::LipschitzRENParams{T}) where T
-    # TODO: Test and complete this
-    direct_ps = Flux.gpu(m.direct)
-    return LipschitzRENParams{T}(
-        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar, m.γ
-    )
-end
-
-function Flux.cpu(m::LipschitzRENParams{T}) where T
-    # TODO: Test and complete this
-    direct_ps = Flux.cpu(m.direct)
-    return LipschitzRENParams{T}(
-        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar, m.γ
-    )
+@functor LipschitzRENParams
+function trainable(m::LipschitzRENParams)
+    m.learn_γ ? (direct = m.direct, γ = m.γ) : (direct = m.direct,)
 end
 
 function direct_to_explicit(ps::LipschitzRENParams{T}, return_h=false) where T
@@ -86,7 +78,7 @@ function direct_to_explicit(ps::LipschitzRENParams{T}, return_h=false) where T
     ny = ps.ny
 
     # Dissipation parameters
-    γ = ps.γ
+    γ = ps.γ[1]
 
     # Implicit parameters
     ϵ = ps.direct.ϵ
@@ -109,25 +101,47 @@ function direct_to_explicit(ps::LipschitzRENParams{T}, return_h=false) where T
     if ps.direct.D22_zero
         D22 = ps.direct.D22
     else
-        M = X3'*X3 + Y3 - Y3' + Z3'*Z3 + ϵ*I
-        N = (ny >= nu) ? [(I - M) / (I + M); -2*Z3 / (I + M)] :
-                        [((I + M) \ (I - M)) (-2*(I + M) \ Z3')]
+        M = _M_lip(X3, Y3, Z3, ϵ)
+        N = _N_lip(nu, ny, M, Z3)
         D22 = γ*N
     end
 
     # Constructing H. See Eqn 28 of TAC paper
-    C2_imp = -(D22')*C2 / γ
-    D21_imp = -(D22')*D21 / γ - D12_imp'
+    C2_imp  = _C2_lip(D22, C2, γ)
+    D21_imp = _D21_lip(D22, D21, γ, D12_imp)
 
-    𝑅 = -D22'*D22 / γ + (γ * I)
-
-    Γ1 = [C2'; D21'; zeros(nx, ny)] * [C2 D21 zeros(ny, nx)] * (-1/γ)
-    Γ2 = [C2_imp'; D21_imp'; B2_imp] * (𝑅 \ [C2_imp D21_imp B2_imp'])
+    𝑅  = _R_lip(D22, γ)
+    Γ1 = _Γ1_lip(nx, ny, C2, D21, γ, T) 
+    Γ2 = _Γ2_lip(C2_imp, D21_imp, B2_imp, 𝑅)
 
     H = x_to_h(X, ϵ, polar_param, ρ) + Γ2 - Γ1
 
     # Get explicit parameterisation
     !return_h && (return hmatrix_to_explicit(ps, H, D22))
     return H
+end
 
+# Auto-diff faster through smaller functions
+_M_lip(X3, Y3, Z3, ϵ) = X3'*X3 + Y3 - Y3' + Z3'*Z3 + ϵ*I
+
+function _N_lip(nu, ny, M, Z3) 
+    if ny >= nu
+        return [(I - M) / (I + M); -2*Z3 / (I + M)]
+    else
+        return [((I + M) \ (I - M)) (-2*(I + M) \ Z3')]
+    end
+end
+
+_C2_lip(D22, C2, γ) = -(D22')*C2 / γ
+
+_D21_lip(D22, D21, γ, D12_imp) = -(D22')*D21 / γ - D12_imp'
+
+_R_lip(D22, γ) = -D22'*D22 / γ + (γ * I)
+
+function _Γ1_lip(nx, ny, C2, D21, γ, T) 
+    [C2'; D21'; zeros(T, nx, ny)] * [C2 D21 zeros(T, ny, nx)] * (-1/γ)
+end
+
+function _Γ2_lip(C2_imp, D21_imp, B2_imp, 𝑅)
+    [C2_imp'; D21_imp'; B2_imp] * (𝑅 \ [C2_imp D21_imp B2_imp'])
 end

@@ -1,3 +1,5 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 mutable struct DiffREN{T} <: AbstractREN{T}
     nl::Function
     nu::Int
@@ -36,9 +38,13 @@ function DiffREN(ps::AbstractRENParams{T}) where T
     return DiffREN{T}(ps.nl, ps.nu, ps.nx, ps.nv, ps.ny, ps)
 end
 
-Flux.@functor DiffREN (params, )
+@functor DiffREN (params, )
 
 function (m::DiffREN)(xt::AbstractVecOrMat, ut::AbstractVecOrMat)
     explicit = direct_to_explicit(m.params)
     return m(xt, ut, explicit) 
+end
+
+function set_output_zero!(m::DiffREN)
+    set_output_zero!(m.params)
 end

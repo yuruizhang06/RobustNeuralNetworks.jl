@@ -1,3 +1,5 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 mutable struct REN{T} <: AbstractREN{T}
     nl::Function
     nu::Int
@@ -41,16 +43,16 @@ using Random
 using RobustNeuralNetworks
 
 # Setup
-rng = MersenneTwister(42)
+rng = Xoshiro(42)
 batches = 10
 nu, nx, nv, ny = 4, 2, 20, 1
 
 # Construct a REN
-contracting_ren_ps = ContractingRENParams{Float64}(nu, nx, nv, ny; rng=rng)
+contracting_ren_ps = ContractingRENParams{Float64}(nu, nx, nv, ny; rng)
 ren = REN(contracting_ren_ps)
 
 # Some random inputs
-x0 = init_states(ren, batches; rng=rng)
+x0 = init_states(ren, batches; rng)
 u0 = randn(rng, ren.nu, batches)
 
 # Evaluate the REN over one timestep
@@ -60,7 +62,7 @@ println(round.(y1;digits=2))
 
 # output
 
-[-1.1 0.32 0.27 0.14 -1.23 -0.4 -0.7 0.01 0.19 0.81]
+[-1.49 0.75 1.34 -0.23 -0.84 0.38 0.79 -0.1 0.72 0.54]
 ```
 
 See also [`REN`](@ref), [`WrapREN`](@ref), and [`DiffREN`](@ref).
@@ -70,18 +72,28 @@ function (m::AbstractREN)(xt::AbstractVecOrMat, ut::AbstractVecOrMat)
 end
 
 function (m::AbstractREN{T})(
-    xt::AbstractVecOrMat{T}, 
-    ut::AbstractVecOrMat{T},
+    xt::AbstractVecOrMat, 
+    ut::AbstractVecOrMat,
     explicit::ExplicitRENParams{T}
 ) where T
 
-    b = explicit.C1 * xt + explicit.D12 * ut .+ explicit.bv
+    # Allocate bias vectors to avoid error when nv = 0 or nx = 0
+    bv = _bias(m.nv, explicit.bv)
+    bx = _bias(m.nx, explicit.bx)
+    by = explicit.by
+
+    b = _b(explicit.C1, explicit.D12, xt, ut, bv)
     wt = tril_eq_layer(m.nl, explicit.D11, b)
-    xt1 = explicit.A * xt + explicit.B1 * wt + explicit.B2 * ut .+ explicit.bx
-    yt = explicit.C2 * xt + explicit.D21 * wt + explicit.D22 * ut .+ explicit.by
+    xt1 = _xt1(explicit.A, explicit.B1, explicit.B2, xt, wt, ut, bx)
+    yt = _yt(explicit.C2, explicit.D21, explicit.D22, xt, wt, ut, by)
 
     return xt1, yt
 end
+
+_bias(n, b) = n == 0 ? 0 : b
+_b(C1, D12, xt, ut, bv)           = C1 * xt + D12 * ut .+ bv
+_xt1(A, B1, B2, xt, wt, ut, bx)   =  A * xt +  B1 * wt + B2 * ut .+ bx
+_yt(C2, D21, D22, xt, wt, ut, by) = C2 * xt + D21 * wt + D22 * ut .+ by
 
 """
     init_states(m::AbstractREN, nbatches; rng=nothing)
@@ -96,18 +108,11 @@ function init_states(m::AbstractREN{T}; rng=nothing) where T
     return zeros(T, m.nx)
 end
 
-"""
-    set_output_zero!(m::AbstractREN)
-
-Set output map of a REN to zero.
-
-If the resulting model is called with `x1,y = ren(x,u)` then `y = 0` for any `x` and `u`.
-"""
 function set_output_zero!(m::AbstractREN)
-    m.explicit.C2 .*= 0
-    m.explicit.D21 .*= 0
-    m.explicit.D22 .*= 0
-    m.explicit.by .*= 0
+    m.explicit.C2  .= 0
+    m.explicit.D21 .= 0
+    m.explicit.D22 .= 0
+    m.explicit.by  .= 0
 
     return nothing
 end

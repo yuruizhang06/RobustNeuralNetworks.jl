@@ -1,3 +1,5 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 @doc raw"""
     mutable struct ExplicitRENParams{T}
 
@@ -62,7 +64,7 @@ mutable struct DirectRENParams{T}
     polar_param::Bool                   # Whether or not to use polar parameterisation
     D22_free   ::Bool                   # Is D22 free or parameterised by (X3,Y3,Z3)?
     D22_zero   ::Bool                   # Option to remove feedthrough.
-    is_output  ::Bool
+    output_map ::Bool                   # Whether to include output map of REN
 end
 
 """
@@ -80,9 +82,10 @@ This is typically used by higher-level constructors when defining a REN, which t
     
 # Keyword arguments
 
-- `init=:random`: Initialisation method. Options are:
-    - `:random`: Random sampling for all parameters.
-    - `:cholesky`: Compute `X` with cholesky factorisation of `H`, sets `E,F,P = I`.
+- `init=:randomQR`: Initialisation method. Options are:
+    - `:random`: Random sampling with Glorot normal distribution. Typically samples "faster"/short memory dynamic models.
+    - `:randomQR:` Compute `X` with `glorot_normal` and take the QR decomposition `X = qr(X).Q`. Good for initialising `X` close to the identity when long memory is needed. Default as legacy.
+    - `:cholesky`: Compute `X` with cholesky factorisation of `H`, sets `E,F,P = I`. Good for slow/long memory dynamic models.
 
 - `polar_param::Bool=true`: Use polar parameterisation to construct `H` matrix from `X` in REN parameterisation (recommended).
 
@@ -94,7 +97,7 @@ This is typically used by higher-level constructors when defining a REN, which t
 
 - `bv_scale::T=1`: Set scalse of initial neuron input bias vector `bv`.
 
-- `is_output::Bool=true`: Include output layer ``y_t = C_2 x_t + D_{21} w_t + D_{22} u_t + b_y``. Otherwise, output is just ``y_t = x_t``.
+- `output_map::Bool=true`: Include output layer ``y_t = C_2 x_t + D_{21} w_t + D_{22} u_t + b_y``. Otherwise, output is just ``y_t = x_t``.
 
 - `ϵ::T=1e-12`: Regularising parameter for positive-definite matrices.
 
@@ -106,13 +109,13 @@ See also [`GeneralRENParams`](@ref), [`ContractingRENParams`](@ref), [`Lipschitz
 """
 function DirectRENParams{T}(
     nu::Int, nx::Int, nv::Int, ny::Int; 
-    init                = :random,
+    init                = :randomQR,
     polar_param::Bool   = true,
     D22_free::Bool      = false,
     D22_zero::Bool      = false,
     bx_scale::T         = T(0), 
     bv_scale::T         = T(1), 
-    is_output::Bool     = true,
+    output_map::Bool    = true,
     ϵ::T                = T(1e-12), 
     rng::AbstractRNG    = Random.GLOBAL_RNG
 ) where T
@@ -122,7 +125,7 @@ function DirectRENParams{T}(
         @warn """Setting D22 fixed at 0. Removing feedthrough."""
         D22_free = true
     end
-    if !is_output
+    if !output_map
         D22_zero = true
         D22_free = true
         if nx != ny
@@ -134,14 +137,20 @@ function DirectRENParams{T}(
     # Random sampling
     if init == :random
 
-        B2  = glorot_normal(nx, nu; T=T, rng=rng)
-        D12 = glorot_normal(nv, nu; T=T, rng=rng)
+        B2  = glorot_normal(nx, nu; T, rng)
+        D12 = glorot_normal(nv, nu; T, rng)
+        X   = glorot_normal(2nx + nv, 2nx + nv; T, rng)
+
+    # Random sampling with QR factorisation
+    elseif init == :randomQR
+
+        B2  = glorot_normal(nx, nu; T, rng)
+        D12 = glorot_normal(nv, nu; T, rng)
         
         # Make orthogonal X
-        X = glorot_normal(2nx + nv, 2nx + nv; T=T, rng=rng)
-        # X = Matrix(qr(X).Q)
-        ρ = [norm(X, 2)]
-
+        X = glorot_normal(2nx + nv, 2nx + nv; T, rng)
+        X = Matrix(qr(X).Q)
+    
     # Specify H and compute X
     elseif init == :cholesky
 
@@ -150,14 +159,14 @@ function DirectRENParams{T}(
         P = Matrix{T}(I, nx, nx)
 
         B1 = zeros(T, nx, nv)
-        B2 = glorot_normal(nx, nu; T=T, rng=rng)
+        B2 = glorot_normal(nx, nu; T, rng)
 
         C1  = zeros(T, nv, nx)
-        D11 = glorot_normal(nv, nv; T=T, rng=rng)
+        D11 = glorot_normal(nv, nv; T, rng)
         D12 = zeros(T, nv, nu)
 
         # TODO: This is prone to errors. Needs a bugfix!
-        Λ = 2*I
+        Λ = 2.5*I
         H22 = 2Λ - D11 - D11'
         Htild = [(E + E' - P) -C1' F';
                  -C1 H22 B1'
@@ -173,12 +182,12 @@ function DirectRENParams{T}(
     ρ = [norm(X)]
 
     # Free parameter for E
-    Y1 = glorot_normal(nx, nx; T=T, rng=rng)
+    Y1 = glorot_normal(nx, nx; T, rng)
 
     # Output layer
-    if is_output
-        C2  = glorot_normal(ny,nx; rng=rng)
-        D21 = glorot_normal(ny,nv; rng=rng)
+    if output_map
+        C2  = glorot_normal(ny, nx; T, rng)
+        D21 = glorot_normal(ny, nv; T, rng)
         D22 = zeros(T, ny, nu)
     else
         C2  = Matrix{T}(I, nx, nx)
@@ -199,9 +208,9 @@ function DirectRENParams{T}(
     end
     
     # Bias terms
-    bv = T(bv_scale) * glorot_normal(nv; T=T, rng=rng)
-    bx = T(bx_scale) * glorot_normal(nx; T=T, rng=rng)
-    by = is_output ? glorot_normal(ny; rng=rng) : zeros(T, ny)
+    bv = T(bv_scale) * glorot_normal(nv; T, rng)
+    bx = T(bx_scale) * glorot_normal(nx; T, rng)
+    by = output_map ? glorot_normal(ny; T, rng) : zeros(T, ny)
 
     return DirectRENParams(
         X, 
@@ -209,16 +218,16 @@ function DirectRENParams{T}(
         B2, C2, D12, D21, D22,
         bx, bv, by, T(ϵ), ρ,
         polar_param, D22_free, D22_zero,
-        is_output
+        output_map
     )
 end
 
-Flux.@functor DirectRENParams
+@functor DirectRENParams
 
-function Flux.trainable(m::DirectRENParams)
+function trainable(m::DirectRENParams)
 
     # Field names of trainable params, exclude ρ if needed
-    if !m.is_output
+    if !m.output_map
         fs = [:X, :Y1, :B2, :D12, :bx, :bv, :ρ]
     elseif m.D22_free
         if m.D22_zero
@@ -236,31 +245,8 @@ function Flux.trainable(m::DirectRENParams)
     indx = length.(ps) .!= 0
     ps, fs = ps[indx], fs[indx]
 
-    # Flux.trainable() must return a NamedTuple
+    # Optimisers.trainable() must return a NamedTuple
     return NamedTuple{tuple(fs...)}(ps)
-end
-
-function Flux.gpu(M::DirectRENParams{T}) where T
-    # TODO: Test and complete this
-    if T != Float32
-        println("Moving type: ", T, " to gpu may not be supported. Try Float32!")
-    end
-    return DirectRENParams{T}(
-        gpu(M.ρ), gpu(M.X), gpu(M.Y1), gpu(M.X3), gpu(M.Y3), 
-        gpu(M.Z3), gpu(M.B2), gpu(M.C2), gpu(M.D12), gpu(M.D21),
-        gpu(M.D22), gpu(M.bx), gpu(M.bv), gpu(M.by),
-        M.ϵ, M.polar_param, M.D22_free, M.D22_zero
-    )
-end
-
-function Flux.cpu(M::DirectRENParams{T}) where T
-    # TODO: Test and complete this
-    return DirectRENParams{T}(
-        cpu(M.ρ), cpu(M.X), cpu(M.Y1), cpu(M.X3), cpu(M.Y3), 
-        cpu(M.Z3), cpu(M.B2), cpu(M.C2), cpu(M.D12), cpu(M.D21),
-        cpu(M.D22), cpu(M.bx), cpu(M.bv), cpu(M.by),
-        M.ϵ, M.polar_param, M.D22_free, M.D22_zero
-    )
 end
 
 """
@@ -269,6 +255,8 @@ end
 Define equality for two objects of type `DirectRENParams`.
     
 Checks if all *relevant* parameters are equal. For example, if `D22` is fixed to `0` then the values of `X3, Y3, Z3` are not important and are ignored.
+
+This is currently not used. Might be useful in the future...
 """
 function ==(ps1::DirectRENParams, ps2::DirectRENParams)
 

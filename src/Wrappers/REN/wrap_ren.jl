@@ -1,3 +1,5 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 mutable struct WrapREN{T} <: AbstractREN{T}
     nl::Function
     nu::Int
@@ -27,7 +29,7 @@ using Random
 using RobustNeuralNetworks
 
 # Setup
-rng = MersenneTwister(42)
+rng = Xoshiro(42)
 batches = 10
 nu, nx, nv, ny = 4, 10, 20, 2
 
@@ -36,11 +38,11 @@ R = 0.1^2 * Matrix{Float64}(I(nu))
 S = zeros(Float64, nu, ny)
 
 # Construct a REN
-ren_ps = GeneralRENParams{Float64}(nu, nx, nv, ny, Q, S, R; rng=rng)
+ren_ps = GeneralRENParams{Float64}(nu, nx, nv, ny, Q, S, R; rng)
 ren = WrapREN(ren_ps)
 
 # Some dummy inputs
-x0 = init_states(ren, batches; rng=rng)
+x0 = init_states(ren, batches; rng)
 u0 = randn(rng, ren.nu, batches)
 
 # Evaluate the REN over one timestep
@@ -54,7 +56,7 @@ println(round(ren.explicit.B2[10];digits=4))
 
 # output
 
-0.0109
+-0.0034
 ```
 
 See also [`AbstractREN`](@ref), [`REN`](@ref), and [`DiffREN`](@ref).
@@ -74,4 +76,4 @@ function update_explicit!(m::WrapREN)
     return nothing
 end
 
-Flux.@functor WrapREN (params, )
+@functor WrapREN (params, )

@@ -1,3 +1,5 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 mutable struct ContractingRENParams{T} <: AbstractRENParams{T}
     nl::Function                # Sector-bounded nonlinearity
     nu::Int
@@ -23,24 +25,24 @@ The parameters can be used to construct an explicit [`REN`](@ref) model that has
 
 # Keyword arguments
 
-- `nl::Function=Flux.relu`: Sector-bounded static nonlinearity.
+- `nl::Function=relu`: Sector-bounded static nonlinearity.
 
 - `αbar::T=1`: Upper bound on the contraction rate with `ᾱ ∈ (0,1]`.
 
-See [`DirectRENParams`](@ref) for documentation of keyword arguments `init`, `ϵ`, `bx_scale`, `bv_scale`, `polar_param`, `D22_zero`, `is_output`, `rng`.
+See [`DirectRENParams`](@ref) for documentation of keyword arguments `init`, `ϵ`, `bx_scale`, `bv_scale`, `polar_param`, `D22_zero`, `output_map`, `rng`.
 
 See also [`GeneralRENParams`](@ref), [`LipschitzRENParams`](@ref), [`PassiveRENParams`](@ref).
 """
 function ContractingRENParams{T}(
     nu::Int, nx::Int, nv::Int, ny::Int;
-    nl::Function        = Flux.relu, 
+    nl::Function        = relu, 
     αbar::T             = T(1),
     init                = :random,
     polar_param::Bool   = true,
     D22_zero::Bool      = false,
     bx_scale::T         = T(0), 
     bv_scale::T         = T(1), 
-    is_output::Bool     = true,
+    output_map::Bool    = true,
     ϵ::T                = T(1e-12), 
     rng::AbstractRNG    = Random.GLOBAL_RNG
 ) where T
@@ -48,9 +50,8 @@ function ContractingRENParams{T}(
     # Direct (implicit) params
     direct_ps = DirectRENParams{T}(
         nu, nx, nv, ny; 
-        init=init, ϵ=ϵ, bx_scale=bx_scale, bv_scale=bv_scale, 
-        polar_param=polar_param, D22_free=true, D22_zero=D22_zero,
-        is_output=is_output, rng=rng
+        init, ϵ, bx_scale, bv_scale, polar_param, 
+        D22_free=true, D22_zero, output_map, rng,
     )
 
     return ContractingRENParams{T}(nl, nu, nx, nv, ny, direct_ps, αbar)
@@ -59,19 +60,15 @@ end
 
 @doc raw"""
     ContractingRENParams(nv, A, B, C, D; ...)
-
 Alternative constructor for `ContractingRENParams` that initialises the
 REN from a **stable** discrete-time linear system with state-space model
-
 ```math
 \begin{align*}
 x_{t+1} &= Ax_t + Bu_t \\
 y_t &= Cx_t + Du_t.
 \end{align*}
 ```
-
-[TODO:] This method may be removed in a later edition of the package.
-
+[TODO:] This method has not been used or tested in a while. If you find it useful, please reach out to us and we will add full support and testing! :)
 [TODO:] Make compatible with αbar ≠ 1.0.
 """
 function ContractingRENParams(
@@ -126,9 +123,9 @@ function ContractingRENParams(
     X = Matrix{T}(cholesky(H).U)
 
     # Add bias terms
-    bv = T(bv_scale) * glorot_normal(nv; T=T, rng=rng)
-    bx = T(bx_scale) * glorot_normal(nx; T=T, rng=rng)
-    by = glorot_normal(ny; T=T, rng=rng)
+    bv = T(bv_scale) * glorot_normal(nv; T, rng)
+    bx = T(bx_scale) * glorot_normal(nx; T, rng)
+    by = glorot_normal(ny; T, rng)
 
     # D22 parameterisation
     D22_free = true
@@ -149,25 +146,9 @@ function ContractingRENParams(
 
 end
 
-Flux.@functor ContractingRENParams (direct, )
+@functor ContractingRENParams (direct, )
 
-function Flux.gpu(m::ContractingRENParams{T}) where T
-    # TODO: Test and complete this
-    direct_ps = Flux.gpu(m.direct)
-    return ContractingRENParams{T}(
-        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar
-    )
-end
-
-function Flux.cpu(m::ContractingRENParams{T}) where T
-    # TODO: Test and complete this
-    direct_ps = Flux.cpu(m.direct)
-    return ContractingRENParams{T}(
-        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar
-    )
-end
-
-function direct_to_explicit(ps::ContractingRENParams{T}, return_h::Bool=false) where T
+function direct_to_explicit(ps::ContractingRENParams, return_h::Bool=false)
 
     ϵ = ps.direct.ϵ
     ρ = ps.direct.ρ[1]

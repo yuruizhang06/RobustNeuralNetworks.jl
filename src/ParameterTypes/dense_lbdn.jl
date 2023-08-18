@@ -1,9 +1,10 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 mutable struct DenseLBDNParams{T} <: AbstractLBDNParams{T}
     nl::Function                    # Sector-bounded nonlinearity
     nu::Int
     nh::Vector{Int}
     ny::Int
-    γ::T
     direct::DirectLBDNParams{T}
 end
 
@@ -12,7 +13,7 @@ end
 
 Construct direct parameterisation of a dense (fully-connected) LBDN.
 
-This is the equivalent of a multi-layer perceptron (eg: `Flux.Dense`) with a guaranteed Lipschitz bound of `γ`.
+This is the equivalent of a multi-layer perceptron (eg: `Flux.Dense`) with a guaranteed Lipschitz bound of `γ`. Note that the Lipschitz bound can made a learnable parameter.
 
 # Arguments
 - `nu::Int`: Number of inputs.
@@ -22,25 +23,25 @@ This is the equivalent of a multi-layer perceptron (eg: `Flux.Dense`) with a gua
 
 # Keyword arguments:
 
-- `nl::Function=Flux.relu`: Sector-bounded static nonlinearity.
+- `nl::Function=relu`: Sector-bounded static nonlinearity.
+- `learn_γ::Bool=false:` Whether to make the Lipschitz bound γ a learnable parameter.
 
 See [`DirectLBDNParams`](@ref) for documentation of keyword arguments `initW`, `initb`, `rng`.
 
 """
 function DenseLBDNParams{T}(
     nu::Int, nh::Vector{Int}, ny::Int, γ::Number = T(1);
-    nl::Function = Flux.relu, 
-    initW::Function = Flux.glorot_normal,
-    initb::Function = Flux.glorot_normal,
+    nl::Function     = relu, 
+    initW::Function  = glorot_normal,
+    initb::Function  = glorot_normal,
+    learn_γ::Bool    = false,
     rng::AbstractRNG = Random.GLOBAL_RNG
 ) where T
-
-    direct = DirectLBDNParams{T}(nu, nh, ny; initW=initW, initb=initb, rng=rng)
-    return DenseLBDNParams{T}(nl, nu, nh, ny, T(γ), direct)
-
+    direct = DirectLBDNParams{T}(nu, nh, ny, γ; initW, initb, learn_γ, rng)
+    return DenseLBDNParams{T}(nl, nu, nh, ny, direct)
 end
 
-Flux.@functor DenseLBDNParams (direct, )
+@functor DenseLBDNParams (direct, )
 
 function direct_to_explicit(ps::DenseLBDNParams{T}) where T
 
@@ -54,13 +55,15 @@ function direct_to_explicit(ps::DenseLBDNParams{T}) where T
     α  = ps.direct.α
     d  = ps.direct.d
     b  = ps.direct.b
+    log_γ = ps.direct.log_γ[1]
 
     # Build explicit model
     Ψd     = get_Ψ(d)
     A_T, B = get_AB(XY, α, vcat(nh, ny))
+    sqrtγ  = sqrt(exp(log_γ))
 
     # Faster to backpropagate with tuples than vectors
-    return ExplicitLBDNParams{T,L1,L}(tuple(A_T...), tuple(B...), tuple(Ψd...), b)
+    return ExplicitLBDNParams{T,L1,L}(tuple(A_T...), tuple(B...), tuple(Ψd...), b, sqrtγ)
 
 end
 
@@ -109,7 +112,3 @@ function get_AB(
     return copy(buf_A), copy(buf_B)
     
 end
-
-# TODO: Add GPU compatibility
-# Flux.cpu() ...
-# Flux.gpu() ...

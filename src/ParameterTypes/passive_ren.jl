@@ -1,3 +1,5 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 mutable struct PassiveRENParams{T} <: AbstractRENParams{T}
     nl::Function                # Sector-bounded nonlinearity
     nu::Int
@@ -25,7 +27,7 @@ Construct direct parameterisation of a passive REN.
 
 - `ν::T=0`: Passivity parameter. Use ν>0 for incrementally strictly input passive model, and ν == 0 for incrementally passive model. 
 
-- `nl::Function=Flux.relu`: Sector-bounded static nonlinearity.
+- `nl::Function=relu`: Sector-bounded static nonlinearity.
 
 - `αbar::T=1`: Upper bound on the contraction rate with `ᾱ ∈ (0,1]`.
 
@@ -35,15 +37,15 @@ See also [`GeneralRENParams`](@ref), [`ContractingRENParams`](@ref), [`Lipschitz
 """
 function PassiveRENParams{T}(
     nu::Int, nx::Int, nv::Int, ny::Int;
-    ν::T = T(0),
-    nl::Function = Flux.relu, 
-    αbar::T = T(1),
-    init = :random,
+    ν::T              = T(0),
+    nl::Function      = relu, 
+    αbar::T           = T(1),
+    init              = :random,
     polar_param::Bool = true,
-    bx_scale::T = T(0), 
-    bv_scale::T = T(1), 
-    ϵ::T = T(1e-12), 
-    rng::AbstractRNG = Random.GLOBAL_RNG
+    bx_scale::T       = T(0), 
+    bv_scale::T       = T(1), 
+    ϵ::T              = T(1e-12), 
+    rng::AbstractRNG  = Random.GLOBAL_RNG
 ) where T
 
     # Check input output pair dimensions
@@ -54,37 +56,20 @@ function PassiveRENParams{T}(
     # Direct (implicit) params
     direct_ps = DirectRENParams{T}(
         nu, nx, nv, ny; 
-        init=init, ϵ=ϵ, bx_scale=bx_scale, bv_scale=bv_scale, 
-        polar_param=polar_param, D22_free=false, rng=rng
+        init, ϵ, bx_scale, bv_scale, polar_param, 
+        D22_free=false, rng,
     )
 
     return PassiveRENParams{T}(nl, nu, nx, nv, ny, direct_ps, αbar, ν)
 
 end
 
-Flux.@functor PassiveRENParams (direct, )
-
-function Flux.gpu(m::PassiveRENParams{T}) where T
-    # TODO: Test and complete this
-    direct_ps = Flux.gpu(m.direct)
-    return PassiveRENParams{T}(
-        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar, m.ν
-    )
-end
-
-function Flux.cpu(m::PassiveRENParams{T}) where T
-    # TODO: Test and complete this
-    direct_ps = Flux.cpu(m.direct)
-    return PassiveRENParams{T}(
-        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar, m.ν
-    )
-end
+@functor PassiveRENParams (direct, )
 
 function direct_to_explicit(ps::PassiveRENParams{T}, return_h=false) where T
 
     # System sizes
     nu = ps.nu
-    nx = ps.nx
     ny = ps.ny
     ν = ps.ν
         
@@ -107,14 +92,13 @@ function direct_to_explicit(ps::PassiveRENParams{T}, return_h=false) where T
     # Constructing D22 for incrementally passive and incrementally strictly input passive. 
     # See Eqns 31-33 of TAC paper 
     # Currently converts to Hermitian to avoid numerical conditioning issues
-    M = X3'*X3 + Y3 - Y3' + ϵ*I
+    M = _M_pass(X3, Y3, ϵ)
 
     D22 = ν*Matrix(I, ny,nu) + M
     D21_imp = D21 - D12_imp'
 
-    𝑅 = -2ν * Matrix(I, nu, nu) + D22 + D22'
-
-    Γ2 = [C2'; D21_imp'; B2_imp] * (𝑅 \ [C2 D21_imp B2_imp'])
+    𝑅  = _R_pass(nu, D22, ν)
+    Γ2 = _Γ2_pass(C2, D21_imp, B2_imp, 𝑅)
 
     H = x_to_h(X, ϵ, polar_param, ρ) + Γ2
 
@@ -122,4 +106,12 @@ function direct_to_explicit(ps::PassiveRENParams{T}, return_h=false) where T
     !return_h && (return hmatrix_to_explicit(ps, H, D22))
     return H
 
+end
+
+_M_pass(X3, Y3, ϵ) = X3'*X3 + Y3 - Y3' + ϵ*I
+
+_R_pass(nu, D22, ν) = -2ν * Matrix(I, nu, nu) + D22 + D22'
+
+function _Γ2_pass(C2, D21_imp, B2_imp, 𝑅)
+    [C2'; D21_imp'; B2_imp] * (𝑅 \ [C2 D21_imp B2_imp'])
 end

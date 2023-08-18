@@ -23,16 +23,16 @@ using Random
 using RobustNeuralNetworks
 
 # Setup
-rng = MersenneTwister(42)
+rng = Xoshiro(42)
 batches = 10
 nu, nx, nv, ny = 4, 2, 20, 1
 
 # Construct a REN
-contracting_ren_ps = ContractingRENParams{Float64}(nu, nx, nv, ny; rng=rng)
+contracting_ren_ps = ContractingRENParams{Float64}(nu, nx, nv, ny; rng)
 ren = REN(contracting_ren_ps)
 
 # Some random inputs
-x0 = init_states(ren, batches; rng=rng)
+x0 = init_states(ren, batches; rng)
 u0 = randn(rng, ren.nu, batches)
 
 # Evaluate the REN over one timestep
@@ -44,7 +44,21 @@ println(round.(y1;digits=2))
 The output should be:
 
 ```julia
-[-1.1 0.32 0.27 0.14 -1.23 -0.4 -0.7 0.01 0.19 0.81]
+[-1.49 0.75 1.34 -0.23 -0.84 0.38 0.79 -0.1 0.72 0.54]
+```
+
+## Citing the Package
+
+If you use `RobustNeuralNetworks.jl` for any research or publications, please cite our work as necessary.
+```bibtex
+@article{barbara2023robustneuralnetworksjl,
+   title   = {RobustNeuralNetworks.jl: a Package for Machine Learning and Data-Driven Control with Certified Robustness},
+   author  = {Nicholas H. Barbara and Max Revay and Ruigang Wang and Jing Cheng and Ian R. Manchester},
+   journal = {arXiv preprint arXiv:2306.12612},
+   month   = {6},
+   year    = {2023},
+   url     = {https://arxiv.org/abs/2306.12612v1},
+}
 ```
 
 ## Contact
