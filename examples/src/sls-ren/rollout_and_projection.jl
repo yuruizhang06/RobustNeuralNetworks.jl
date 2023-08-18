@@ -13,8 +13,6 @@ function rollout(G::lti, Q::ContractingRENParams, w)
     function f(X_1, t)
         h_1 = X_1 
         ht, ψt = Qe(h_1, w[t])
-        # ψx = ψt[1:nx,:]
-        # ψu = ψt[nx+1:nx+nu,:]
         # validation
         Xt = ht
         zt  = ψt
@@ -109,47 +107,108 @@ function rollout(G::lti, Q::SystemlevelRENParams, w)
     Qe = REN(Q)
     nx, nu = G.nx, G.nu
     batch = size(w[1], 2)
-    X1 = (zeros(Qe.nx, batch))
+    ψxs = zeros(1, batch)
+    ψus = zeros(1, batch)
+
+    # h_1 = zeros(Qe.nx, batch)
+    # w_1 = zeros(nx, batch)
+    # h0, ψ_1 = Qe(h_1, w_1)
+    x1 = zeros(nx, batch)
+    h_1 = zeros(Qe.nx, batch)
+    w_1 = zeros(nx, batch)
+    hr0, ψr_1 = Qe(h_1, w_1)
+    u_1 = zeros(nu, batch)
+    
+    # X0 = G(x1, u_1, w_1)
+    wh0 = x1 - Qe.explicit.C2[1:size(A,1),:]*hr0 .- Qe.explicit.by[1:size(A,1),:]
+    hr1, ψr0 = Qe(hr0, wh0)
+    ψur0 = ψr0[size(A,1)+1:end,:]
+    ψxr0 = ψr0[1:size(A,1),:]
+
+    # h1, ψ0 = ren(h0, wh0)
+
+    X1 = (x1, hr1, ψur0)
 
     function f(X_1, t)
-        h_1 = X_1 
-        ht, ψt = Qe(h_1, w[t])
-        # ψx = ψt[1:nx,:]
-        # ψu = ψt[nx+1:nx+nu,:]
-        # validation
-        Xt = ht
-        zt  = ψt
-        return Xt, zt
+        x_1, ht, u_1 = X_1 #system state, hidden state, ̂w, control input
+        xt = G(x_1, u_1, w[t]) # system state at time t
+        hnt, ψt = Qe(ht, w[t])
+        x_t = ψt[1:nx,:] # ψ_x at time t
+        ut = ψt[nx+1:end, :] # ψ_u at time t
+        # println(norm(xt-x_t))
+        Xt = (xt, hnt, ut)
+        # return hnt, ψt
+        return Xt, ψt
     end
 
     md = Flux.Recur(f,X1)
     z = md.(1:length(w))
 
-    return z
+    for i in 1:length(w)
+        ψxs = vcat(ψxs, z[i][1:nx,:])
+        ψus = vcat(ψus, z[i][nx+1:nx+nu,:])
+    end
+
+    return z, ψxs[2:end,:], ψus[2:end,:]
 end
 
 function validation(G::lti, Q::SystemlevelRENParams, w)
     Qe = REN(Q) # Construction from direct parameterization
     nx, nu = G.nx, G.nu # Dynamical system dimension
     batch = size(w[1], 2)
-    X1 = (zeros(nx, batch), zeros(Qe.nx, batch), zeros(nx, batch),
-         zeros(nu, batch)) # Initialize the state of the REN
     ψxs = zeros(1, batch)
     ψus = zeros(1, batch)
 
+    # Initialize the state of the REN
+    x1 = zeros(nx, batch)
+    h_1 = zeros(Qe.nx, batch)
+    w_1 = zeros(nx, batch)
+    hr0, ψr_1 = Qe(h_1, w_1)
+    u_1 = zeros(nu, batch)
+
+    # X0 = G(x1, u_1, w_1)
+    wh0 = x1 - Qe.explicit.C2[1:size(A,1),:]*hr0 .- Qe.explicit.by[1:size(A,1),:]
+    hr1, ψr0 = Qe(hr0, wh0)
+    ψur0 = ψr0[size(A,1)+1:end,:]
+    ψxr0 = ψr0[1:size(A,1),:]
+    
+    # h1, ψ0 = ren(h0, wh0)
+    
+    X1 = (x1, hr1, ψur0, hr1)
+
+    # function f(X_1, t)
+    #     # Unpack the state of the REN from last time step
+    #     x_1, h_1, w_1, u_1 = X_1 #system state, hidden state, ̂w, control input
+    #     xt = G(x_1, u_1, w[t]) # system state at time t
+    #     ht, ψ = Qe(h_1, w_1) # hidden state at time t
+    #     # ̂wt = xt - ψt
+    #     wht = xt - Qe.explicit.C2[1:nx,:]*ht .- Qe.explicit.by[1:nx,:]
+    #     # wht = x_1 -ψ[1:nx,:]
+    #     hnt, ψt= Qe(ht, wht) # ψ_x and \psi_u at time t
+    #     # ψx = ψt[1:nx,:] # ψ_x at time t
+    #     ut = ψt[nx+1:end, :] # ψ_u at time t
+    #     Xt = (xt, ht, wht, ut) # Pack the state of the REN at time t
+    #     zt = ψt
+    #     return Xt, zt
+    # end
+
     function f(X_1, t)
         # Unpack the state of the REN from last time step
-        x_1, h_1, w_1, u_1 = X_1 #system state, hidden state, ̂w, control input
+        x_1, ht, u_1, hr = X_1 #system state, hidden state, ̂w, control input
         xt = G(x_1, u_1, w[t]) # system state at time t
-        ht, v = Qe(h_1, w_1) # hidden state at time t
         # ̂wt = xt - ψt
-        wht = (xt - Qe.explicit.C2[1:nx,:]*ht .- Qe.explicit.by[1:nx,:])*0.5
-        # wht = x_1 -v[1:nx,:]
-        hnt, vt= Qe(ht, wht) # ψ_x and \psi_u at time t
-        ψx = vt[1:nx,:] # ψ_x at time t
-        ut = vt[nx+1:end, :] # ψ_u at time t
-        Xt = (ψx, ht, wht, ut) # Pack the state of the REN at time t
-        zt = vt
+        hrt, ψrt = Qe(hr, w[t])
+        wht = xt - Qe.explicit.C2[1:nx,:]*ht .- Qe.explicit.by[1:nx,:]
+        # println(norm(wht-w[t]))
+        hnt, ψt= Qe(ht, wht) 
+        # println(norm(ψt-ψrt))
+        x_t = ψt[1:nx,:] # ψ_x at time t
+        # println(norm(ψrt[1:nx,:]-xt))
+        # println(norm(xt-x_t))
+        ut = ψt[nx+1:end, :] # ψ_u at time t
+        Xt = (xt, hnt, ut, hrt) # Pack the state of the REN at time t
+        # zt = ψt
+        zt = vcat(xt ,ut)
         return Xt, zt
     end
 
@@ -161,5 +220,5 @@ function validation(G::lti, Q::SystemlevelRENParams, w)
         ψus = vcat(ψus, z[i][nx+1:nx+nu,:])
     end
 
-    return z, ψxs, ψus
+    return z, ψxs[2:end,:], ψus[2:end,:]
 end

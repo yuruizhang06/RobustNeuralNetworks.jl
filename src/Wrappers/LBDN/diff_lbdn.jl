@@ -1,9 +1,10 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 mutable struct DiffLBDN{T} <: AbstractLBDN{T}
     nl::Function
     nu::Int
     nh::Vector{Int}
     ny::Int
-    sqrt_γ::T
     params::AbstractLBDNParams{T}
 end
 
@@ -26,15 +27,14 @@ The syntax to construct a `DiffLBDN` is identical to that of an [`LBDN`](@ref).
 using RobustNeuralNetworks
 
 nu, nh, ny, γ = 1, [10, 20], 1
-lbdn_params = DenseLBDNParams{Float64}(nu, nh, ny)
+lbdn_params = DenseLBDNParams{Float64}(nu, nh, ny, γ)
 model = DiffLBDN(lbdn_params)
 ```
 
 See also [`AbstractLBDN`](@ref), [`LBDN`](@ref), [`SandwichFC`](@ref).
 """
 function DiffLBDN(ps::AbstractLBDNParams{T}) where T
-    sqrt_γ = sqrt(ps.γ)
-    return DiffLBDN{T}(ps.nl, ps.nu, ps.nh, ps.ny, sqrt_γ, ps)
+    return DiffLBDN{T}(ps.nl, ps.nu, ps.nh, ps.ny, ps)
 end
 
 function (m::DiffLBDN)(u::AbstractVecOrMat)
@@ -42,4 +42,8 @@ function (m::DiffLBDN)(u::AbstractVecOrMat)
     return m(u, explicit)
 end
 
-Flux.@functor DiffLBDN (params, )
+@functor DiffLBDN (params, )
+
+function set_output_zero!(m::DiffLBDN)
+    set_output_zero!(m.params)
+end

@@ -1,10 +1,10 @@
 name = "RobustNeuralNetworks"
 uuid = "a1f18e6b-8af1-433f-a85d-2e1ee636a2b8"
 authors = ["Nicholas H. Barbara", "Max Revay", "Ruigang Wang", "Jing Cheng", "Jerome Justin", "Ian R. Manchester"]
-version = "0.2.0"
+version = "0.2.3"
 
 [deps]
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 Formatting = "59287772-0a20-5a39-b81b-1366585eb4c0"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -15,7 +15,8 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-Flux = "0.13"
+ChainRulesCore = "1"
+Flux = "0.13, 0.14"
 MatrixEquations = "2"
 Zygote = "0.6"
 julia = "1.6"

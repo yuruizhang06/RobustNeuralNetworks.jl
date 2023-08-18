@@ -1,6 +1,7 @@
 using Distributions
 using Random
 using MatrixEquations
+using StableRNGs
 
 # utility
 glorot_normal(n, m; rng=Random.GLOBAL_RNG) = randn(rng, n, m) / sqrt(n + m)
@@ -83,6 +84,22 @@ function linearised_cartpole(;dt=0.08, max_steps=50, σw=0.005, σv=0.001)
 
     return G
 
+end
+
+function cost_diff(ψx, ψu, wt, tsim, G::lti)
+    nx = G.nx
+    # cosine distance and norm
+    diff = []
+    cos_dis = []
+    for i in 1:tsim-1
+        ψxn = A*ψx[(i-1)*nx+1:nx*i,:]+ B*ψu[i,:]' + wt[i+1]
+        diff = append!(diff,ψxn-ψx[nx*i+1:nx*(i+1),:])  
+        cos_dis= append!(cos_dis, dot(ψxn, ψx[nx*i+1:nx*(i+1),:]) 
+            / (norm(ψxn)* norm(ψx[nx*i+1:nx*(i+1),:])))
+    end
+    cosinedis = mean(cos_dis)
+    normdiff = norm(diff)
+    return normdiff, cosinedis
 end
 
 (G::lti)(xt, ut, wt) = G.A * xt + G.B * ut + wt 

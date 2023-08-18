@@ -1,9 +1,10 @@
+# This file is a part of RobustNeuralNetworks.jl. License is MIT: https://github.com/acfr/RobustNeuralNetworks.jl/blob/main/LICENSE 
+
 mutable struct LBDN{T} <: AbstractLBDN{T}
     nl::Function
     nu::Int
     nh::Vector{Int}
     ny::Int
-    sqrt_γ::T
     explicit::ExplicitLBDNParams{T}
 end
 
@@ -17,9 +18,8 @@ This constructor takes a direct parameterisation of LBDN (eg: a [`DenseLBDNParam
 See also [`AbstractLBDN`](@ref), [`DiffLBDN`](@ref).
 """
 function LBDN(ps::AbstractLBDNParams{T}) where T
-    sqrt_γ = sqrt(ps.γ)
     explicit = direct_to_explicit(ps)
-    return LBDN{T}(ps.nl, ps.nu, ps.nh, ps.ny, sqrt_γ, explicit)
+    return LBDN{T}(ps.nl, ps.nu, ps.nh, ps.ny, explicit)
 end
 
 """
@@ -42,7 +42,7 @@ using Random
 using RobustNeuralNetworks
 
 # Setup
-rng = MersenneTwister(42)
+rng = Xoshiro(42)
 batches = 10
 γ = 20.0
 
@@ -50,7 +50,7 @@ batches = 10
 nu, ny = 4, 1
 nh = [5, 10, 5, 15]
 
-lbdn_ps = DenseLBDNParams{Float64}(nu, nh, ny, γ; rng=rng)
+lbdn_ps = DenseLBDNParams{Float64}(nu, nh, ny, γ; rng)
 lbdn = LBDN(lbdn_ps)
 
 # Evaluate model with a batch of random inputs
@@ -61,14 +61,14 @@ println(round.(y; digits=2))
 
 # output
 
-[-0.69 -1.89 -9.68 3.47 -11.65 -4.48 -4.53 3.61 1.37 -0.68]
+[-1.11 -1.01 -0.07 -2.25 -4.22 -1.76 -3.82 -1.13 -11.85 -3.01]
 ```
 """
 function (m::AbstractLBDN)(u::AbstractVecOrMat)
     return m(u, m.explicit)
 end
 
-function (m::AbstractLBDN{T})(u::AbstractVecOrMat{T}, explicit::ExplicitLBDNParams{T,N,M}) where {T,N,M}
+function (m::AbstractLBDN{T})(u::AbstractVecOrMat, explicit::ExplicitLBDNParams{T,N,M}) where {T,N,M}
 
     # Extract explicit params
     σ   = m.nl
@@ -78,7 +78,7 @@ function (m::AbstractLBDN{T})(u::AbstractVecOrMat{T}, explicit::ExplicitLBDNPara
     b   = explicit.b
 
     sqrt2 = T(√2)
-    sqrtγ = m.sqrt_γ
+    sqrtγ = explicit.sqrtγ
 
     # Evaluate LBDN (extracting Ψd[k] is faster for backprop)
     # Note: backpropagation is similarly fast with for loops as with Flux chains (tested)
@@ -90,16 +90,9 @@ function (m::AbstractLBDN{T})(u::AbstractVecOrMat{T}, explicit::ExplicitLBDNPara
     return sqrtγ * B[N] * h .+ b[N]
 end
 
-"""
-    set_output_zero!(m::AbstractLBDN)
-
-Set output map of an LBDN to zero.
-
-If the resulting model is called with `y = lbdn(u)` then `y = 0` for any `u`.
-"""
 function set_output_zero!(m::AbstractLBDN)
-    m.explicit.B[end] .*= 0
-    m.explicit.b[end] .*= 0
+    m.explicit.B[end] .= 0
+    m.explicit.b[end] .= 0
 
     return nothing
 end
