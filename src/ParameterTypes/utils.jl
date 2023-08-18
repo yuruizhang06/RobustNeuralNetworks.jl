@@ -49,7 +49,6 @@ function hmatrix_to_explicit(ps::AbstractRENParams, H::AbstractMatrix{T}, D22::A
     # To be used later
     ᾱ = ps.αbar
     Y1 = ps.direct.Y1
-    
     # Extract sections of H matrix 
     # Using @view is faster but not supported by CUDA
     H11 = H[1:nx, 1:nx]
@@ -73,6 +72,7 @@ function hmatrix_to_explicit(ps::AbstractRENParams, H::AbstractMatrix{T}, D22::A
     # Construct the explicit model
     A = E \ F
     B1 = E \ B1_imp
+    # B1 = E \ B1_imp*0
     B2 = E \ ps.direct.B2
 
     C1 = broadcast(*, Λ_inv, C1_imp)

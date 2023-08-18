@@ -45,7 +45,6 @@ end
 
 function systemlevel_trainable(L::DirectRENParams, y::Vector)
     ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv, y]
-    # ps = [L.ρ, L.Y1, L.B2, L.D12, L.bv, y]
     !(L.polar_param) && popfirst!(ps)
     return filter(p -> length(p) !=0, ps)
 end
@@ -100,14 +99,15 @@ function explicit_to_H(ps::SystemlevelRENParams, explicit::ExplicitRENParams, re
     D21 = vcat(zeros(nX,nv), reshape(𝕘[nx*nX+nx*nU+1:nx*nX+nx*nU+nv*nU],nU,nv))
     D22 = vcat(Matrix(I,nX,nX), reshape(𝕘[nx*nX+nx*nU+nv*nU+1:nx*nX+nx*nU+nv*nU+nX*nU],nU,nX))
     by = 𝕘[nx*nX+nx*nU+nv*nU+nX*nU+1:end]
+
+    # k = explicit.C2[1:nX,:]*bx+(I-ps.A)*by[1:nX,:]-ps.B*by[nX+1:end,:]
+    # println(k)
     
     !return_h && (return C2, D21, D22, by)
     return ℍ, 𝕗, 𝕘
 end
 
 function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
-
-
 
    #  from contracting ren
     ϵ = ps.direct.ϵ

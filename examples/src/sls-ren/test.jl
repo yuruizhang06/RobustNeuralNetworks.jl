@@ -24,7 +24,7 @@ includet("./rollout_and_projection.jl")
 Test system level constraints
 """
 batches = 1
-nx, nv = 1,2
+nx, nv = 10, 20
 # T = 100
 
 A = [1.5 0.5; 0 1]
@@ -32,10 +32,10 @@ B = [1.1; 0.1]
 C = [1 0]
 L = [1 ,1, 1]
 
-# A = [1.5 0.5 2 3; 3 0.7 4 1; 3 6 4 2; 7 6 0 1]
-# B = [1; 0.0; 1.1; 0.5]
+# A = [1.5 0.5 2 3; 3 0.7 4 1; 3 6 4 2; 1 2 1 1]
+# B = [1 2 3 1 0; 0.0 1 1 1 0.1; 1.1 0 1 0 0; 0.5 1 1 1 0]
 # C = [1 0 0 0]
-# L = [1, 1, 1, 1, 1]
+# L = [1, 1, 1, 1, 1, 1, 1, 1 ,1]
 
 # A = [1 2.1 3 4 3; 3 4 2 1 2; 2 3 1 2 1; 4 3 2 1 2; 2 3 4 5 6]
 # B = [0; 1.1; 1; 0; 1]
@@ -48,12 +48,12 @@ L = [1 ,1, 1]
 
 
 G =lti(A,B,C)
-# println(rank(ctrb(A, B)))
+println(rank(ctrb(A, B)))
 # Test constructors
-# X = BSON.load("stableX.bson")[:X]
 ren_ps = SystemlevelRENParams{Float64}(nx, nv, A, B; polar_param = :true, init = :random)
-# ren_ps.direct.X = ren_ps.direct.X-I
-# println(X-ren_ps.direct.X)
+C2x = ren_ps.direct.C2[1:G.nx, :] 
+q = qr(G.B).Q
+# ren_ps.direct.C2[1:G.nx, :] = q*q'/(q'*q)*C2x
 left = nv*G.nx + G.nx*G.nx
 right = nx*G.nu + nv*G.nu + G.nx*G.nu + G.nu
 if left>=right
@@ -77,6 +77,9 @@ println(rank(hcat(H,f)))
 # stop_here()
 println(size(H))
 println(norm(H*g-f))
+
+# bson("choleskyH.bson", Dict(:H => H))
+
 # stop_here()
 # count = 0
 # for i in 1:size(H, 2)
@@ -86,7 +89,7 @@ println(norm(H*g-f))
 #         println(i)
 #     end
 # end
-stop_here()
+# stop_here()
 # count2 = 0
 # for i in 1:size(H, 1)
 #     if rank(hcat(H,f)[1:i, :]) < i-count2
@@ -102,7 +105,7 @@ stop_here()
 # Generate random noise
 sim = 150
 x0_lims = ones(size(A,1),1)
-w_sigma = 1.0*ones(size(A,1),1)
+w_sigma = 0.0*ones(size(A,1),1)
 ws = wgen(G, batches, sim, x0_lims, w_sigma)
 
 w_1 = zeros(size(A,1), batches)
@@ -164,22 +167,22 @@ hr3, ψr2 = ren(hr2, wh2)
 ψxr2 = ψr2[1:size(A,1),:]
 # println(ψxr2)
 # Validation for the system level constraints
-# diff1 = ψx2 - A*ψx1 - B*ψu1 - w2
-# diff2 = ψxr2 - X2 
-# diff3 = ψx2 - X2
-# diff4 = ψxr2 - A*ψxr1 - B*ψur1 - w2
-# diff5 = ψxr2 - A*X1 - B*ψu1 - w2
-# diff6 = ψx2 - A*X1 - B*ψur1 - w2
-# diff7 = X2 - A*X1 - B*ψur1 - w2
-# diff8 = ψxr0- ψx0 
-# println(norm(diff1))
-# println(norm(diff2))
-# println(norm(diff3))
-# println(norm(diff4))
-# println(norm(diff5))
-# println(norm(diff6))
-# println(norm(diff7))
-# println(norm(diff8))
+diff1 = ψx2 - A*ψx1 - B*ψu1 - w2
+diff2 = ψxr2 - X2 
+diff3 = ψx2 - X2
+diff4 = ψxr2 - A*ψxr1 - B*ψur1 - w2
+diff5 = ψxr2 - A*X1 - B*ψu1 - w2
+diff6 = ψx2 - A*X1 - B*ψur1 - w2
+diff7 = X2 - A*X1 - B*ψur1 - w2
+diff8 = ψxr0- ψx0 
+println(norm(diff1))
+println(norm(diff2))
+println(norm(diff3))
+println(norm(diff4))
+println(norm(diff5))
+println(norm(diff6))
+println(norm(diff7))
+println(norm(diff8))
 # println(H[30,:])
 
 _cost(zt) = mean(sum(L .* zt.^2; dims=1))

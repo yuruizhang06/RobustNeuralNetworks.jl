@@ -46,7 +46,7 @@ wv = wgen(G, tbatch, tsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (18, 2, tbatch, 500, 1E-3)
+nqx, nqv, batches, Epoch, η = (30, 3, tbatch, 10, 1E-3)
 left = nqv*G.nx + G.nx*G.nx
 right = nqx*G.nu + nqv*G.nu + G.nx*G.nu + G.nu
 if left>=right
@@ -54,13 +54,13 @@ if left>=right
     # stop_here()
 end
 Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B; polar_param = :true, init = :random)
-# Q.direct.X = Q.direct.X+1I
+# Q.direct.X = Q.direct.X+0.01I
 
 Qe = REN(Q)
 H, f, g = explicit_to_H(Q, Qe.explicit, true)
 if rank(H) != rank(hcat(H,f))
     println("The rank of H is not equal to the rank of [H,f]")
-    stop_here()
+    # stop_here()
 end
 zr1, _, _ = rollout(G, Q, wv)
 Jr1 = cost(zr1)
@@ -93,14 +93,14 @@ for epoch in 1:Epoch
     Jr = cost(zr_)
     zv_, ψx2_, ψu2_ = validation(G, Q, wv)
     Jv = cost(zv_)
-
-    # Qe = REN(Q)
-    # H, f, g = explicit_to_H(Q, Qe.explicit, true)
-    println(rank(H))
-    println(rank(hcat(H,f)))
-    # println(norm(H*g-f))
-    println(size(H))
-    # println(cond(H))
+    # # stop_here()
+    Qe = REN(Q)
+    H, f, g = explicit_to_H(Q, Qe.explicit, true)
+    # println(rank(H))
+    # println(rank(hcat(H,f)))
+    # # println(norm(H*g-f))
+    # println(size(H))
+    # # println(cond(H))
 
     # normdiff1, cosdis1 = cost_diff(ψx1_, ψu1_, wt, tsim, G)
     # normdiff2, cosdis2 = cost_diff(ψx2_, ψu2_, wt, tsim, G)
@@ -117,6 +117,7 @@ for epoch in 1:Epoch
 end
 
 # Forward simulation
+Qe = REN(Q)
 sim = 50
 ws = wgen(G, 1, sim, x0_lims, w_sigma; rng=rng)
 # ws_ = reduce(hcat, ws)
@@ -165,4 +166,4 @@ display(plt3)
 display(plt4)
 display(plt5)
 
-# bson("stableX.bson", Dict(:X => Q.direct.X))
+bson("stableX.bson", Dict(:X => Q.direct.X))
