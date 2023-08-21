@@ -24,7 +24,7 @@ includet("./rollout_and_projection.jl")
 Test system level constraints
 """
 batches = 1
-nx, nv = 10, 20
+nx, nv = 10, 2
 # T = 100
 
 A = [1.5 0.5; 0 1]

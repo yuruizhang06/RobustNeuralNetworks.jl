@@ -15,13 +15,12 @@ end
 function SystemlevelRENParams{T}(
     nx::Int, nv::Int,
     A::AbstractArray{T}, B::AbstractArray{T};
-    nl::Function = Flux.relu, 
+    nl::Function = relu, 
     αbar::T = T(1),
     init = :random,
     polar_param::Bool = true,
     bx_scale::T = T(0), 
     bv_scale::T = T(1), 
-    is_output::Bool     = true,
     ϵ::T = T(1e-12), 
     rng::AbstractRNG = Random.GLOBAL_RNG
 ) where T
@@ -33,38 +32,20 @@ function SystemlevelRENParams{T}(
     # Direct (implicit) params
     direct_ps = DirectRENParams{T}(
         nu, nx, nv, ny; 
-        init=init, ϵ=ϵ, bx_scale=bx_scale, bv_scale=bv_scale, 
-        polar_param=polar_param, D22_free=true, is_output=is_output, rng=rng
+        init, ϵ, bx_scale, bv_scale, polar_param, 
+        D22_free=true, rng
     )
 
     return SystemlevelRENParams{T}(nl, nu, nx, nv, ny, direct_ps, αbar, A, B, y)
 
 end
 
-# Flux.@functor SystemlevelRENParams (direct, )
-
-function systemlevel_trainable(L::DirectRENParams, y::Vector)
-    ps = [L.ρ, L.X, L.Y1, L.B2, L.D12, L.bx, L.bv, y]
-    !(L.polar_param) && popfirst!(ps)
-    return filter(p -> length(p) !=0, ps)
-end
-
-Flux.trainable(m::SystemlevelRENParams) = systemlevel_trainable(m.direct, m.y)
-
-function Flux.gpu(m::SystemlevelRENParams{T}) where T
-    # TODO: Test and complete this
-    direct_ps = Flux.gpu(m.direct)
-    return SystemlevelRENParams{T}(
-        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar, m.A, m.B, m.y
-    )
-end
-
-function Flux.cpu(m::SystemlevelRENParams{T}) where T
-    # TODO: Test and complete this
-    direct_ps = Flux.cpu(m.direct)
-    return SystemlevelRENParams{T}(
-        m.nl, m.nu, m.nx, m.nv, m.ny, direct_ps, m.αbar, m.A, m.B, m.y
-    )
+@functor SystemlevelRENParams 
+function trainable(m::SystemlevelRENParams)
+    ps = [m.direct.ρ, m.direct.X, m.direct.Y1, m.direct.B2, m.direct.D12, m.direct.bx, m.direct.bv]
+    !(m.direct.polar_param) && popfirst!(ps)
+    # return filter(p -> length(p) !=0, ps)
+    (direct = ps, y = m.y)
 end
 
 function explicit_to_H(ps::SystemlevelRENParams, explicit::ExplicitRENParams, return_h::Bool=false)

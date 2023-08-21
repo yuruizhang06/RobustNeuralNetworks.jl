@@ -166,4 +166,4 @@ display(plt3)
 display(plt4)
 display(plt5)
 
-bson("stableX.bson", Dict(:X => Q.direct.X))
+# bson("stableX.bson", Dict(:X => Q.direct.X))
