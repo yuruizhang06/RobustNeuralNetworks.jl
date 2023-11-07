@@ -13,6 +13,7 @@ using StableRNGs
 using Plots
 using ControlSystems
 using BSON
+using RowEchelon
 
 using RobustNeuralNetworks
 
@@ -24,36 +25,30 @@ includet("./rollout_and_projection.jl")
 Test system level constraints
 """
 batches = 1
-nx, nv = 10, 2
+nx, nv = 6,10
 # T = 100
 
-A = [1.5 0.5; 0 1]
-B = [1.1; 0.1]
-C = [1 0]
-L = [1 ,1, 1]
+# A = [1.5 0.5; 0 1]
+# B = [1.1; .3]
+# C = [1 0]
+# L = [1 ,1, 1]
 
-# A = [1.5 0.5 2 3; 3 0.7 4 1; 3 6 4 2; 1 2 1 1]
-# B = [1 2 3 1 0; 0.0 1 1 1 0.1; 1.1 0 1 0 0; 0.5 1 1 1 0]
-# C = [1 0 0 0]
-# L = [1, 1, 1, 1, 1, 1, 1, 1 ,1]
+A = [1.5 0.5 2 3; 3 0.7 4 1; 3 6 4 2; 1 2 1 1]
+B = [1 2 3 1 0; 0.0 1 1 1 0.1; 1.1 0 1 0 0; 0.5 1 1 1 0]
+C = [1 0 0 0]
+L = [1, 1, 1, 1, 1, 1, 1, 1 ,1]
 
 # A = [1 2.1 3 4 3; 3 4 2 1 2; 2 3 1 2 1; 4 3 2 1 2; 2 3 4 5 6]
 # B = [0; 1.1; 1; 0; 1]
 # C = [1, 0, 0, 0, 0]
 # L = [1, 5, 5, 5, 1, 1]
-# A = [1.0]
-# B = [1.0]
-# C = [1.0]
-# L = [1.0]
 
 
 G =lti(A,B,C)
-println(rank(ctrb(A, B)))
+# println(rank(ctrb(A, B)))
 # Test constructors
 ren_ps = SystemlevelRENParams{Float64}(nx, nv, A, B; polar_param = :true, init = :random)
-C2x = ren_ps.direct.C2[1:G.nx, :] 
-q = qr(G.B).Q
-# ren_ps.direct.C2[1:G.nx, :] = q*q'/(q'*q)*C2x
+
 left = nv*G.nx + G.nx*G.nx
 right = nx*G.nu + nv*G.nu + G.nx*G.nu + G.nu
 if left>=right
@@ -65,22 +60,26 @@ end
 ren = REN(ren_ps)
 # println(ren.explicit.bx)
 
-
 # ren.explicit.A = 2*ren.explicit.A
 # ren_ps.direct.bx=0*ren_ps.direct.bx 
 # ren_ps.direct.bv=0*ren_ps.direct.bv
 # ren_ps.direct.by=0*ren_ps.direct.by
+# stop_here()
+ren.explicit.B1 = [randn(nx,G.nu)*G.B' zeros(nx, nv-G.nx)]
 
 H, f, g = explicit_to_H(ren_ps, ren.explicit, true)
+
 println(rank(H))
 println(rank(hcat(H,f)))
-# stop_here()
+# rref_aug = rref(hcat(H,f))
+# print(size(nullspace(hcat(kron(ren.explicit.B1',Matrix(I,G.nx,G.nx)), -kron(Matrix(I,nv,nv),G.B)))))
+# print(nullspace(vcat(hcat(kron(ren.explicit.B1',Matrix(I,G.nx,G.nx)), zeros(nv*G.nx,nx*G.nu), -kron(Matrix(I,nv,nv),G.B)),
+    # hcat(kron(ren.explicit.A',Matrix(I,G.nx,G.nx))-kron(Matrix(I,nx,nx),G.A), -kron(Matrix(I,nx,nx),G.B), zeros(nx*G.nx,nv*G.nu)))))
+
 println(size(H))
 println(norm(H*g-f))
 
-# bson("choleskyH.bson", Dict(:H => H))
-
-# stop_here()
+stop_here()
 # count = 0
 # for i in 1:size(H, 2)
 #     if rank(H[:, 1:i]) < i-count
@@ -125,7 +124,7 @@ h_1 = zeros(nx, batches)
 wh_1= zeros(size(A,1), batches)
 h0, ψ_1 = ren(h_1, w_1)
 
-# t = 0\
+# t = 0
 X0 = A*X_1 + B*U_1 + w0
 
 hr0, ψr_1 = ren(h_1, wh_1)
