@@ -63,7 +63,7 @@ println(round.(y;digits=2))
 
 # output
 
-[3.62 4.74 3.58 8.75 3.64 3.0 0.73 1.16 1.0 1.73]
+[4.13 4.37 3.22 8.38 4.15 3.71 0.7 2.04 1.78 2.64]
 ```
 
 See also [`DenseLBDNParams`](@ref), [`DiffLBDN`](@ref).
@@ -97,7 +97,7 @@ function (m::SandwichFC)(x::AbstractVecOrMat{T}) where T
     XY = m.XY
     α = m.α
     d = m.d
-    b = m.d
+    b = m.b
     σ = m.σ
     n = size(XY,2)
 
@@ -105,11 +105,13 @@ function (m::SandwichFC)(x::AbstractVecOrMat{T}) where T
     output = (d === nothing)
 
     # Get explicit model parameters
-    A_T, B_T = norm_cayley(XY, α, n)
+    A_T, B_T = normalised_cayley(XY, α, n)
     B = B_T'
     
-    # Just output layer?
-    output && (return bias ? B*x .+ b : B*x)
+    # If just the output layer, return Bx + b (or just Bx if no bias)
+    if output
+        return bias ? B*x .+ b : B*x
+    end
 
     # Regular sandwich layer
     Ψd = exp.(d)
