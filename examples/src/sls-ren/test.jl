@@ -25,36 +25,38 @@ includet("./rollout_and_projection.jl")
 Test system level constraints
 """
 batches = 1
-nx, nv = 6,10
+nx, nv = 3,20
 # T = 100
 
-# A = [1.5 0.5; 0 1]
-# B = [1.1; .3]
-# C = [1 0]
-# L = [1 ,1, 1]
+A = [1.5 0.5; 0 1]
+B = [1.1; .3]
+C = [1 0]
+L = [1 ,1, 1]
 
-A = [1.5 0.5 2 3; 3 0.7 4 1; 3 6 4 2; 1 2 1 1]
-B = [1 2 3 1 0; 0.0 1 1 1 0.1; 1.1 0 1 0 0; 0.5 1 1 1 0]
-C = [1 0 0 0]
-L = [1, 1, 1, 1, 1, 1, 1, 1 ,1]
+# A = [1.5 0.5 2 1; 3 0.7 4 3; 3 6 2 1; 1 1 2 5]
+# B = [1 0.5; 0.0 1; 1.1 2;0.7 1]
+# C = [1 0 0 0]
+# L = [1, 1, 1, 1, 1]
 
-# A = [1 2.1 3 4 3; 3 4 2 1 2; 2 3 1 2 1; 4 3 2 1 2; 2 3 4 5 6]
-# B = [0; 1.1; 1; 0; 1]
-# C = [1, 0, 0, 0, 0]
-# L = [1, 5, 5, 5, 1, 1]
+# A = [1 2.1 3 4 3 1 ; 3 4 2 1 2 2 ; 2 3 1 2 11 1; 4 3 2 1 2 1; 2 3 4 5 6 2; 4 3 5 2 1 1]
+# B = [0; 1.1; 1 ; 0.11; 1; 1.3]
+# C = [1 0 0 0 0 0]
+# L = [1, 5, 5, 5, 1, 1,1]
 
-
+# sys = ss(A,B,C,[0 0])
+# ctrb(sys)
+# println(rank(ctrb(sys)))
 G =lti(A,B,C)
 # println(rank(ctrb(A, B)))
 # Test constructors
-ren_ps = SystemlevelRENParams{Float64}(nx, nv, A, B; polar_param = :true, init = :random)
+ren_ps = SystemlevelRENParams{Float64}(nx, nv, A, B)
 
-left = nv*G.nx + G.nx*G.nx
-right = nx*G.nu + nv*G.nu + G.nx*G.nu + G.nu
-if left>=right
-    println("The number of parameters is not enough!")
-    # stop_here()
-end
+# left = nv*G.nx + G.nx*G.nx
+# right = nx*G.nu + nv*G.nu + G.nx*G.nu + G.nu
+# if left>=right
+#     println("The number of parameters is not enough!")
+#     # stop_here()
+# end
 # ren_ps.direct.B2[1:G.nx, 1:G.nx] = G.A
 # println(ren_ps.direct.bx)
 ren = REN(ren_ps)
@@ -65,21 +67,27 @@ ren = REN(ren_ps)
 # ren_ps.direct.bv=0*ren_ps.direct.bv
 # ren_ps.direct.by=0*ren_ps.direct.by
 # stop_here()
-ren.explicit.B1 = [randn(nx,G.nu)*G.B' zeros(nx, nv-G.nx)]
+# ren.explicit.B1 = [randn(nx,G.nu)*G.B' zeros(nx, nv-G.nx)]
 
 H, f, g = explicit_to_H(ren_ps, ren.explicit, true)
 
 println(rank(H))
 println(rank(hcat(H,f)))
 # rref_aug = rref(hcat(H,f))
-# print(size(nullspace(hcat(kron(ren.explicit.B1',Matrix(I,G.nx,G.nx)), -kron(Matrix(I,nv,nv),G.B)))))
-# print(nullspace(vcat(hcat(kron(ren.explicit.B1',Matrix(I,G.nx,G.nx)), zeros(nv*G.nx,nx*G.nu), -kron(Matrix(I,nv,nv),G.B)),
-    # hcat(kron(ren.explicit.A',Matrix(I,G.nx,G.nx))-kron(Matrix(I,nx,nx),G.A), -kron(Matrix(I,nx,nx),G.B), zeros(nx*G.nx,nv*G.nu)))))
-
+println(size(nullspace(hcat(kron(ren.explicit.B1',Matrix(I,G.nx,G.nx)), -kron(Matrix(I,nv,nv),G.B)))))
+println(size(nullspace(vcat(hcat(kron(ren.explicit.B1',Matrix(I,G.nx,G.nx)), zeros(nv*G.nx,nx*G.nu), -kron(Matrix(I,nv,nv),G.B)),
+    hcat(kron(ren.explicit.A',Matrix(I,G.nx,G.nx))-kron(Matrix(I,nx,nx),G.A), -kron(Matrix(I,nx,nx),G.B), zeros(nx*G.nx,nv*G.nu))))))
+c2x = ren.explicit.C2[1:G.nx,:]
+c2u = ren.explicit.C2[G.nx+1:end,:]
+d21u = ren.explicit.D21[G.nx+1:end,:]
+d22u = ren.explicit.D22[G.nx+1:end,:]
+𝔸 = ren.explicit.A
+𝔹1 = ren.explicit.B1
+𝔹2 = ren.explicit.B2
 println(size(H))
 println(norm(H*g-f))
 
-stop_here()
+# stop_here()
 # count = 0
 # for i in 1:size(H, 2)
 #     if rank(H[:, 1:i]) < i-count

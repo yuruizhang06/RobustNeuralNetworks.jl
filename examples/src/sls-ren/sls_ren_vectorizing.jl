@@ -22,14 +22,18 @@ rng = StableRNG(0)
 # B = [1; 0; 1.1]
 # C = [1 0 0]
 # L = [1, 1 ,1, 1]
-A = [1.5 0.5 2 3; 3 0.7 4 1; 3 6 4 2; 1 2 1 1]
-B = [1; 0.0; 1.1; 0.5]
-C = [1 0 0 0]
-L = [1, 1, 1, 1, 1]
+# A = [1.5 0.5 2 3; 3 0.7 4 1; 3 6 4 2; 1 2 1 1]
+# B = [1; 0.1; 1.1; 0.5]
+# C = [1 0 0 0]
+# L = [1, 1, 1, 1, 1]
 # A = [1 2.1 3 4 3; 3 4 2 1 2; 2 3 1 2 1; 4 3 2 1 2; 2 3 4 5 6]
 # B = [0; 1.1; 1; 0; 1]
 # C = [1, 0, 0, 0, 0]
 # L = [1, 1, 1, 1, 1, 1]
+A = [1.5 0.5 2 3; 3 0.7 4 1; 3 6 4 2; 1 2 1 1]
+B = [1 2; 0.0 1; 1.1 0; 0.5 1]
+C = [1 0 0 0]
+L = [1, 1, 1, 1, 1, 1]
 G = lti(A, B, C)
 nx = G.nx
 nu = G.nu
@@ -46,14 +50,14 @@ wv = wgen(G, tbatch, tsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (30, 3, tbatch, 10, 1E-3)
+nqx, nqv, batches, Epoch, η = (10, 20, tbatch, 10, 1E-3)
 left = nqv*G.nx + G.nx*G.nx
 right = nqx*G.nu + nqv*G.nu + G.nx*G.nu + G.nu
 if left>=right
     println("The number of parameters is not enough!")
     # stop_here()
 end
-Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B; polar_param = :true, init = :random)
+Q = SystemlevelRENParams{Float64}(nqx, nqv, G.A, G.B)
 # Q.direct.X = Q.direct.X+0.01I
 
 Qe = REN(Q)

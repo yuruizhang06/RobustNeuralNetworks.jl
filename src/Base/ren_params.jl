@@ -69,6 +69,10 @@ mutable struct DirectRENParams{T}
     D22_free   ::Bool                   # Is D22 free or parameterised by (X3,Y3,Z3)?
     D22_zero   ::Bool                   # Option to remove feedthrough.
     output_map ::Bool                   # Whether to include output map of REN
+
+    # Add system_level_ren params
+    χ ::AbstractMatrix{T}#parameterization of X
+    β::AbstractMatrix{T}
 end
 
 """
@@ -121,7 +125,11 @@ function DirectRENParams{T}(
     bv_scale::T         = T(1), 
     output_map::Bool    = true,
     ϵ::T                = T(1e-12), 
-    rng::AbstractRNG    = Random.GLOBAL_RNG
+    rng::AbstractRNG    = Random.GLOBAL_RNG,
+
+    # sl_parameterization
+    Bbar ::AbstractArray{T} = [],
+    
 ) where T
 
     # Check options
@@ -178,6 +186,21 @@ function DirectRENParams{T}(
         
         X = Matrix{T}(cholesky(Htild).U) # H = X'*X
         ρ = [norm(X, 2)]
+    elseif init == :sl_param
+        nX = size(Bbar,1)
+        nU = size(Bbar,2)
+
+        β = glorot_normal(nX, nv; T, rng)
+
+        B2  = glorot_normal(nx, nu; T, rng)
+        D12 = glorot_normal(nv, nu; T, rng)
+        χ   = glorot_normal(2nx + nv, 2nx + nU; T, rng)
+        𝔹 = vcat(hcat(Matrix(I, nx, nx), zeros(nx,nv+nx)),
+            hcat(zeros(nU, nx), Bbar'*β, zeros(nU,nx)), 
+            hcat(zeros(nx, nx+nv),Matrix(I, nx, nx)))
+        
+        X = χ*𝔹
+
     else
         error("Undefined initialisation method ", init)
     end
@@ -222,7 +245,7 @@ function DirectRENParams{T}(
         B2, C2, D12, D21, D22,
         bx, bv, by, T(ϵ), ρ,
         polar_param, D22_free, D22_zero,
-        output_map
+        output_map, χ, β
     )
 end
 
