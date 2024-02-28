@@ -1,5 +1,6 @@
 using JuMP
-# using MosekTools
+using MosekTools
+using Ipopt
 using RobustNeuralNetworks
 
 includet("./utils.jl")
@@ -103,6 +104,31 @@ function proj!(G::lti, Q::ContractingRENParams)
         vec(value.((Du2))),value.(by))
 end
 
+function solve_lqr(G::lti, L, step, x0, ubar)
+    Q = diagm(0 => L[1:G.nx]) 
+    R = diagm(0 => L[G.nx+1:G.nx+G.nu])
+    nx, nu = G.nx, G.nu 
+    # X, E, K, Z = ared(G.A, G.B, R, Q, zeros(G.nx, G.nu))
+    prob = Model(Ipopt.Optimizer)
+    #set variable 
+    @variable(prob,  x[1:nx,1:step])
+    @variable(prob,  u[1:nu,1:step-1])
+
+    # equality constraint
+    # @constraint(prob, x.== G.A*Cx + G.B*Cu )
+    @constraint(prob, x[:, 2:end] .== G.A * x[:, 1:end-1] + G.B * u[:, 1:end])
+    @constraint(prob, x[:, 1] .== x0)
+
+    # obj = sum(x[:,i]' * Q * x[:,i] + u[:,i]' * R * u[:,i] for i =1:step-1)
+    obj = sum(x[:,i]' * Q * x[:,i] + u[:,i]' * R * u[:,i] + max(u[:,i].-ubar, 5) for i =1:step-1)
+
+    @objective(prob, Min, obj)
+    optimize!(prob)
+
+    u_out = value.(u)
+    return u_out
+end
+
 function rollout(G::lti, Q::SystemlevelRENParams, w)
     Qe = REN(Q)
     nx, nu = G.nx, G.nu
@@ -120,10 +146,11 @@ function rollout(G::lti, Q::SystemlevelRENParams, w)
     u_1 = zeros(nu, batch)
     
     # X0 = G(x1, u_1, w_1)
-    wh0 = x1 - Qe.explicit.C2[1:size(A,1),:]*hr0 .- Qe.explicit.by[1:size(A,1),:]
+    # wh0 = x1 - Qe.explicit.C2[1:size(A,1),:]*hr0 .- Qe.explicit.by[1:size(A,1),:]
+    wh0 = x1 - Qe.explicit.C2[1:nx,:]*hr0 .- Qe.explicit.by[1:nx,:]
     hr1, ψr0 = Qe(hr0, wh0)
-    ψur0 = ψr0[size(A,1)+1:end,:]
-    ψxr0 = ψr0[1:size(A,1),:]
+    ψur0 = ψr0[nx+1:end,:]
+    ψxr0 = ψr0[1:nx,:]
 
     # h1, ψ0 = ren(h0, wh0)
 
@@ -135,6 +162,7 @@ function rollout(G::lti, Q::SystemlevelRENParams, w)
         hnt, ψt = Qe(ht, w[t])
         x_t = ψt[1:nx,:] # ψ_x at time t
         ut = ψt[nx+1:end, :] # ψ_u at time t
+        # ut_ = tanh.(0.01*ut)
         # println(norm(xt-x_t))
         Xt = (xt, hnt, ut)
         # return hnt, ψt
@@ -167,10 +195,10 @@ function validation(G::lti, Q::SystemlevelRENParams, w)
     u_1 = zeros(nu, batch)
 
     # X0 = G(x1, u_1, w_1)
-    wh0 = x1 - Qe.explicit.C2[1:size(A,1),:]*hr0 .- Qe.explicit.by[1:size(A,1),:]
+    wh0 = x1 - Qe.explicit.C2[1:nx,:]*hr0 .- Qe.explicit.by[1:nx,:]
     hr1, ψr0 = Qe(hr0, wh0)
-    ψur0 = ψr0[size(A,1)+1:end,:]
-    ψxr0 = ψr0[1:size(A,1),:]
+    ψur0 = ψr0[nx+1:end,:]
+    ψxr0 = ψr0[1:nx,:]
     
     # h1, ψ0 = ren(h0, wh0)
     
@@ -206,6 +234,7 @@ function validation(G::lti, Q::SystemlevelRENParams, w)
         # println(norm(ψrt[1:nx,:]-xt))
         # println(norm(xt-x_t))
         ut = ψt[nx+1:end, :] # ψ_u at time t
+        # ut_ = tanh.(0.01*ut)
         Xt = (xt, hnt, ut, hrt) # Pack the state of the REN at time t
         # zt = ψt
         zt = vcat(xt ,ut)

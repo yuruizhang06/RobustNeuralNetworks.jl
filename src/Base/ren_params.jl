@@ -190,13 +190,15 @@ function DirectRENParams{T}(
         nX = size(Bbar,1)
         nU = size(Bbar,2)
 
-        β = glorot_normal(nX, nv; T, rng)
+        # β = glorot_normal(nX, nv; T, rng)
+        β = glorot_normal(nU, nv; T, rng)
 
         B2  = glorot_normal(nx, nu; T, rng)
         D12 = glorot_normal(nv, nu; T, rng)
-        χ   = glorot_normal(2nx + nv, 2nx + nU; T, rng)
+        χ   = glorot_normal(2nx + nv, 2nx + nX; T, rng)
         𝔹 = vcat(hcat(Matrix(I, nx, nx), zeros(nx,nv+nx)),
-            hcat(zeros(nU, nx), Bbar'*β, zeros(nU,nx)), 
+            # hcat(zeros(nU, nx), Bbar'*β, zeros(nU,nx)), 
+            hcat(zeros(nX, nx), Bbar*β, zeros(nX,nx)), 
             hcat(zeros(nx, nx+nv),Matrix(I, nx, nx)))
         
         X = χ*𝔹

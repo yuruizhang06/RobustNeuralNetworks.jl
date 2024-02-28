@@ -44,6 +44,15 @@ function wgen(G::lti, batches, T, x0_lims, w_sigma; rng = StableRNG(0))
     wt = [w_sigma .* randn(rng, G.nx, batches) for t in 1:T-1]
     return vcat(x0, wt)
 end
+function step_gen(G::lti, batches, T, x0_lims, step; rng = StableRNG(0))
+    step_ = ones(T)
+    for j=1:T
+        step_[j] = step[div(j,50)+1]
+    end
+    x0 = [x0_lims .* randn(rng, G.nx, batches)]
+    wt = [step_[t] .* vcat(ones(batches), zeros(G.nx-1, batches)) for t in 1:T-1]
+    return vcat(x0, wt)
+end
 
 function rollout(G::lti, K, w)
 
@@ -70,13 +79,13 @@ function linearised_cartpole(;dt=0.08, max_steps=50, σw=0.005, σv=0.001)
     δ, mp, l, mc, g = (dt, 0.2, 0.5, 1.0, 9.81)
     Ac = [0 1 0 0; 0 0 -mp*g/mc 0; 0 0 0 1; 0 0 g*(mc+mp)/(l*mc) 0]
     Bc = reshape([0; 1/mc; 0; -1/mc],4,1)
-    Ag = Matrix(I,4,4)+δ*Ac
-    Bg = δ*Bc
-    Cg = [1.0 0 0 0; 0 0 1.0 0]
+    A = Matrix(I,4,4)+δ*Ac
+    B = δ*Bc
+    C = [1.0 0 0 0; 0 0 1.0 0]
     x0_lims = [0.5, 0.2, 0.5, 0.2]/2
 
     G = lti(
-        Ag, Bg, Cg; 
+        A, B, C; 
         x0_lims = x0_lims, 
         σw = σw, σv = σv, 
         max_steps = max_steps

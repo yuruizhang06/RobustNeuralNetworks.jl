@@ -61,6 +61,7 @@ Jvs = [Jv1]
 for epoch in 1:Epoch
     # optimization
     wt = wgen(G,tbatch,tsim,x0_lims,w_sigma;rng=rng)
+    println(wt[1])
     
     function loss()
         zt = rollout(G, Q, wt)
