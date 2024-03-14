@@ -43,14 +43,14 @@ x0_lims = 0.9*ones(nx,1)
 w_sigma = .00*ones(nx,1)
 
 # test for nonquadratic cost
-ub = 10
-xb = 1.5
-px = 800
-pu = 800
+ub = 3
+xb = 1.8
+px = 3000
+pu = 300
 # _u(u) = px*max(abs(u) - ub, 0)
 _x(x) = pu*max(abs(x) - xb, 0)
 # _cu(zt) = mean(_u.(zt[nx+1,:]))
-_cx(zt) = mean(_x.(zt[1:2,:]))
+_cx(zt) = mean(_x.(zt[1,:]))
 
 _cost(zt) = mean(sum(L .* zt.^2; dims=1))
 cost(z::AbstractVector) = mean(_cost.(z))  + mean(_cx.(z))
@@ -67,7 +67,7 @@ wv = wgen(G, tbatch, tsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (15, 20, tbatch, 200, 1E-3)
+nqx, nqv, batches, Epoch, η = (15, 20, tbatch, 500, 1E-4)
 # left = nqv*G.nx + G.nx*G.nx
 # right = nqx*G.nu + nqv*G.nu + G.nx*G.nu + G.nu
 # if left>=right
@@ -219,17 +219,17 @@ display(plt4)
 
 
 
-data = Dict(
-    "Jvs" => Jvs,
-    "Jb" => Jb,
-    "xr"  => xr,
-    "ur"  => ur,
-    "ws"  => ws,
-    "ψx"  => ψxr,
-    "ψu"  => ψur,
-    "ub" => ub,
-    "x0_lims" => x0_lims,
-)
-dir = "./"
-name = "sl-ren"
-bson(string(dir, name,  "-eta-",η,"-n-",Epoch, ".bson"),data)
+# data = Dict(
+#     "Jvs" => Jvs,
+#     "Jb" => Jb,
+#     "xr"  => xr,
+#     "ur"  => ur,
+#     "ws"  => ws,
+#     "ψx"  => ψxr,
+#     "ψu"  => ψur,
+#     "ub" => ub,
+#     "x0_lims" => x0_lims,
+# )
+# dir = "./"
+# name = "sl-ren"
+# bson(string(dir, name,  "-eta-",η,"-n-",Epoch, ".bson"),data)
