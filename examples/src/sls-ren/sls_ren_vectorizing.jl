@@ -108,7 +108,7 @@ for epoch in 1:Epoch
     
     J, back = Zygote.pullback(loss, ps)
     ∇J = back(one(J))
-    # println("norm of gradient: $(norm(∇J))")
+    # println(J)
     # stop_here()
     update!(opt, ps, ∇J)  
     # validation

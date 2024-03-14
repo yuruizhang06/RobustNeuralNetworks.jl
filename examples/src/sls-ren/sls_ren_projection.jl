@@ -43,8 +43,12 @@ Jb = cost(zb)
 
 nqx, nqv, batches, Epoch, η = (20, 50, 80, 200, 1E-3)
 nqu = nx 
-nqy = nx+nu 
-Q = ContractingRENParams{Float64}(nqu, nqx, nqv, nqy; init = :cholesky)
+nqy = nx+nu
+# Q = ContractingRENParams{Float64}(2, 3, 4, 5)
+Q = ContractingRENParams{Float64}(nqu, nqx, nqv, nqy)
+stop_here()
+println("Jr1: $Jr1, Jv1: $Jv1")
+stop_here()
 proj!(G, Q)
 zv1 = rollout(G, Q, wv)
 Jv1 = cost(zv1)
@@ -61,7 +65,6 @@ Jvs = [Jv1]
 for epoch in 1:Epoch
     # optimization
     wt = wgen(G,tbatch,tsim,x0_lims,w_sigma;rng=rng)
-    println(wt[1])
     
     function loss()
         zt = rollout(G, Q, wt)
