@@ -18,6 +18,12 @@ using RobustNeuralNetworks
 
 includet("./rollout_and_projection.jl")
 
+dir = "./"
+
+test_data = BSON.load(string(dir, "SLS-proj-data.bson"))
+
+wv = get(test_data, "wv", -1)
+
 rng = StableRNG(0)
 # A = [1.5 0.5 1; 0 1 2; 0 0 1]
 # B = [0; 1; 1.1]
@@ -31,13 +37,13 @@ rng = StableRNG(0)
 # B = [0; 1.1; 1; 0; 1]
 # C = [1, 0, 0, 0, 0]
 # L = [1, 1, 1, 1, 1, 1]
-A = [1.5 0.5 2 3; 3 0.7 4 1; 3 6 4 2; 1 2 1 1]
-B = [1 2; 0.0 1; 1.1 0; 0.5 1]
-C = [1 0 0 0]
-L = [1, 1, 1, 1, 1, 1]
-G = lti(A, B, C)
-# G= linearised_cartpole()
-L = [1, 1 ,1, 1, 1,1 ]
+# A = [1.5 0.5 2 3; 3 0.7 4 1; 3 6 4 2; 1 2 1 1]
+# B = [1 2; 0.0 1; 1.1 0; 0.5 1]
+# C = [1 0 0 0]
+# L = [1, 1, 1, 1, 1, 1]
+# G = lti(A, B, C)
+G= linearised_cartpole()
+L = [1, 1 ,1, 1, 1]
 nx = G.nx
 nu = G.nu
 x0_lims = 2*ones(nx,1)
@@ -45,31 +51,30 @@ w_sigma = .00*ones(nx,1)
 
 # test for nonquadratic cost
 # ub = 3
-# xb = 1.8
-# px = 3000
+xb = 2
+px = 3000
 # pu = 300
-# _u(u) = px*max(abs(u) - ub, 0)
-# _x(x) = pu*max(abs(x) - xb, 0)
+# _u(u) = pu*max(abs(u) - ub, 0)
+_x(x) = px*max(abs(x) - xb, 0)
 # _cu(zt) = mean(_u.(zt[nx+1,:]))
-# _cx(zt) = mean(_x.(zt[1,:]))
+_cx(zt) = mean(_x.(zt[1,:]))
 
 _cost(zt) = mean(sum(L .* zt.^2; dims=1))
-cost(z::AbstractVector) = mean(_cost.(z))  
-# + mean(_cx.(z))
+cost(z::AbstractVector) = mean(_cost.(z))+ mean(_cx.(z))
 
 #+ mean(_cu.(z))
 # _cost(zt) = mean(sum(L .* zt.^2; dims=1))
 # cost(z) = mean(_cost.(z))
 
 tbatch = 100
-tsim = 50
+tsim = 100
 
 K = lqr(G, L)
-wv = wgen(G, tbatch, tsim, x0_lims, w_sigma; rng=rng)
+# wv = wgen(G, tbatch, tsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
 
-nqx, nqv, batches, Epoch, η = (20, 10, tbatch, 1000, 1E-4)
+nqx, nqv, batches, Epoch, η = (20, 40, tbatch, 5000, 1E-3)
 # left = nqv*G.nx + G.nx*G.nx
 # right = nqx*G.nu + nqv*G.nu + G.nx*G.nu + G.nu
 # if left>=right
@@ -143,7 +148,7 @@ end
 
 # Forward simulation
 # Qe = REN(Q)
-sim = 20
+sim = 150
 ws = wgen(G, 1, sim, x0_lims, w_sigma; rng=rng)
 # ws = step_gen(G, 1, sim, x0_lims, 0.5*randn(rng, sim+1), rng = StableRNG(0))
 # ws_ = reduce(hcat, ws)
@@ -246,9 +251,14 @@ data = Dict(
     # "zb"  => zb,
 )
 
-bson("./SLS-directparam-model.bson",model)
-bson("./SLS-directparam-data.bson",data)
+bson("./SLS-directparam-lc2-model.bson",model)
+bson("./SLS-directparam-lc2-data.bson",data)
 
-file = matopen("./task1_directparam.mat", "w")
+file = matopen("./task3_directparam.mat", "w")
 write(file, "Jv", Jvs)
+write(file, "x_lqr", xr)
+write(file, "u_lqr", ur)
+write(file, "x_sls", ψxv)
+write(file, "u_sls", ψuv)
+
 close(file)
