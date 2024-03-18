@@ -20,9 +20,10 @@ includet("./rollout_and_projection.jl")
 
 dir = "./"
 
-test_data = BSON.load(string(dir, "SLS-proj-data.bson"))
+test_data = BSON.load(string(dir, "SLS-directparam-lc2-data.bson"))
 
 wv = get(test_data, "wv", -1)
+ws = get(test_data, "ws", -1)
 
 rng = StableRNG(0)
 # A = [1.5 0.5 1; 0 1 2; 0 0 1]
@@ -51,13 +52,13 @@ w_sigma = .00*ones(nx,1)
 
 # test for nonquadratic cost
 # ub = 3
-xb = 2
-px = 3000
+xb = 5
+px = 10000
 # pu = 300
 # _u(u) = pu*max(abs(u) - ub, 0)
 _x(x) = px*max(abs(x) - xb, 0)
 # _cu(zt) = mean(_u.(zt[nx+1,:]))
-_cx(zt) = mean(_x.(zt[1,:]))
+_cx(zt) = mean(_x.(zt[2,:]))
 
 _cost(zt) = mean(sum(L .* zt.^2; dims=1))
 cost(z::AbstractVector) = mean(_cost.(z))+ mean(_cx.(z))
@@ -67,14 +68,15 @@ cost(z::AbstractVector) = mean(_cost.(z))+ mean(_cx.(z))
 # cost(z) = mean(_cost.(z))
 
 tbatch = 100
-tsim = 100
+tsim = 150
 
 K = lqr(G, L)
 # wv = wgen(G, tbatch, tsim, x0_lims, w_sigma; rng=rng)
 zb = rollout(G,K,wv)
 Jb = cost(zb)
+Jbk = mean(_cost.(zb))
 
-nqx, nqv, batches, Epoch, η = (20, 40, tbatch, 5000, 1E-3)
+nqx, nqv, batches, Epoch, η = (20, 30, tbatch, 1000, 1E-4)
 # left = nqv*G.nx + G.nx*G.nx
 # right = nqx*G.nu + nqv*G.nu + G.nx*G.nu + G.nu
 # if left>=right
@@ -98,7 +100,8 @@ println("Jr1: $Jr1, Jv1: $Jv1")
 Jvs = [Jv1]
 # stop_here()
 opt = ADAM()
-optimizer = Flux.Optimiser(ADAM(),ExpDecay(η, 0.5, 1500, 1e-7, 1))
+optimizer = Flux.Optimiser(ADAM())
+# ExpDecay(η, 0.5, 1500, 1e-7, 1)
 ps = Flux.params(Q)
 
 for epoch in 1:Epoch
@@ -123,6 +126,7 @@ for epoch in 1:Epoch
     Jr = cost(zr_)
     zv_, ψx2_, ψu2_ = validation(G, Q, wv)
     Jv = cost(zv_)
+    Jk = mean(_cost.(zv_))
     # # stop_here()
     # Qe = REN(Q)
     # H, f, g = explicit_to_H(Q, Qe.explicit, true)
@@ -142,14 +146,14 @@ for epoch in 1:Epoch
     # println("Cosine distance: $cosdis4, Norm: $normdiff4")
 
     push!(Jvs, Jv)
-    println("Epoch: $epoch, Jr: $Jr, Jv: $Jv, J0: $Jb")
+    println("Epoch: $epoch, Jr: $Jr, Jv: $Jv,Jk: $Jk J0: $Jb, J0k: $Jbk")
 
 end
 
 # Forward simulation
 # Qe = REN(Q)
 sim = 150
-ws = wgen(G, 1, sim, x0_lims, w_sigma; rng=rng)
+# ws = wgen(G, 1, sim, x0_lims, w_sigma; rng=rng)
 # ws = step_gen(G, 1, sim, x0_lims, 0.5*randn(rng, sim+1), rng = StableRNG(0))
 # ws_ = reduce(hcat, ws)
 zs1, ψxs1, ψus1 = rollout(G, Q, ws)
@@ -165,18 +169,18 @@ println("Jss: $Jss")
 
 xr_=zeros(nx,1)
 ur_=zeros(nu,1)
-ws_=zeros(nx,1)
+# ws_=zeros(nx,1)
 zs3 = rollout(G,K,ws)
 Js3 = cost(zs3)
 println("Js3: $Js3")
 for i in 1:sim
     global xr_ = hcat(xr_, zs3[i][1:nx])
     global ur_ = hcat(ur_, zs3[i][nx+1:nx+nu])
-    global ws_ = hcat(ws_, ws[i])
+    # global ws_ = hcat(ws_, ws[i])
 end
 xr = xr_[:,2:end]
 ur = ur_[:,2:end]
-ws = ws_[:,2:end]
+# ws = ws_[:,2:end]
 
 plt1 = plot()
 plt2 = plot()
@@ -248,6 +252,7 @@ data = Dict(
     # "zv"  => zv,
     "Jvs" => Jvs,
     "Jb"  => Jb,
+    "ws" => ws,
     # "zb"  => zb,
 )
 
