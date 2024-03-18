@@ -52,13 +52,13 @@ w_sigma = .00*ones(nx,1)
 
 # test for nonquadratic cost
 # ub = 3
-xb = 5
-px = 10000
+xb = 10
+px = 300
 # pu = 300
 # _u(u) = pu*max(abs(u) - ub, 0)
 _x(x) = px*max(abs(x) - xb, 0)
 # _cu(zt) = mean(_u.(zt[nx+1,:]))
-_cx(zt) = mean(_x.(zt[2,:]))
+_cx(zt) = mean(_x.(zt[1,:]))
 
 _cost(zt) = mean(sum(L .* zt.^2; dims=1))
 cost(z::AbstractVector) = mean(_cost.(z))+ mean(_cx.(z))
