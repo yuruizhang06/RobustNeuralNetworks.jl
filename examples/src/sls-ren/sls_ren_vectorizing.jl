@@ -51,19 +51,20 @@ x0_lims = 2*ones(nx,1)
 w_sigma = .00*ones(nx,1)
 
 # test for nonquadratic cost
-# ub = 3
-xb = 10
-px = 300
-# pu = 300
-# _u(u) = pu*max(abs(u) - ub, 0)
-_x(x) = px*max(abs(x) - xb, 0)
-# _cu(zt) = mean(_u.(zt[nx+1,:]))
-_cx(zt) = mean(_x.(zt[1,:]))
+ub = 10
+# xb = 10
+# px = 300
+pu = 300
+_u(u) = pu*max(abs(u) - ub, 0)
+# _x(x) = px*max(abs(x) - xb, 0)
+_cu(zt) = mean(_u.(zt[nx+1,:]))
+# _cx(zt) = mean(_x.(zt[1,:]))
 
 _cost(zt) = mean(sum(L .* zt.^2; dims=1))
-cost(z::AbstractVector) = mean(_cost.(z))+ mean(_cx.(z))
+cost(z::AbstractVector) = mean(_cost.(z)) 
+# + mean(_cu.(z))
 
-#+ mean(_cu.(z))
+# + mean(_cx.(z))
 # _cost(zt) = mean(sum(L .* zt.^2; dims=1))
 # cost(z) = mean(_cost.(z))
 
@@ -76,7 +77,7 @@ zb = rollout(G,K,wv)
 Jb = cost(zb)
 Jbk = mean(_cost.(zb))
 
-nqx, nqv, batches, Epoch, η = (20, 30, tbatch, 1000, 1E-4)
+nqx, nqv, batches, Epoch, η = (10, 15, tbatch, 2000, 1E-3)
 # left = nqv*G.nx + G.nx*G.nx
 # right = nqx*G.nu + nqv*G.nu + G.nx*G.nu + G.nu
 # if left>=right
@@ -153,7 +154,7 @@ end
 # Forward simulation
 # Qe = REN(Q)
 sim = 150
-# ws = wgen(G, 1, sim, x0_lims, w_sigma; rng=rng)
+ws = wgen(G, 1, sim, x0_lims, w_sigma; rng=rng)
 # ws = step_gen(G, 1, sim, x0_lims, 0.5*randn(rng, sim+1), rng = StableRNG(0))
 # ws_ = reduce(hcat, ws)
 zs1, ψxs1, ψus1 = rollout(G, Q, ws)
@@ -180,7 +181,7 @@ for i in 1:sim
 end
 xr = xr_[:,2:end]
 ur = ur_[:,2:end]
-# ws = ws_[:,2:end]
+ws = ws_[:,2:end]
 
 plt1 = plot()
 plt2 = plot()
@@ -214,10 +215,10 @@ end
 # plot!(plt1, -xb*ones(sim), color=:black)
 # plot!(plt5, xb*ones(sim), color=:black)
 # plot!(plt5, -xb*ones(sim), color=:black)
-# plot!(plt6, ub*ones(sim), color=:black)
-# plot!(plt6, -ub*ones(sim), color=:black)
-# plot!(plt8, ub*ones(sim), color=:black)
-# plot!(plt8, -ub*ones(sim), color=:black)
+plot!(plt6, ub*ones(sim), color=:black)
+plot!(plt6, -ub*ones(sim), color=:black)
+plot!(plt8, ub*ones(sim), color=:black)
+plot!(plt8, -ub*ones(sim), color=:black)
 plt4 = plot(log.(Jvs), label="Jv")
 display(plt1)
 # display(plt2)

@@ -45,8 +45,9 @@ end
 
 @functor SystemlevelRENParams 
 function trainable(m::SystemlevelRENParams)
-    # ps = [m.direct.ρ, m.direct.χ, m.direct.β, m.direct.Y1, m.direct.B2, m.direct.D12, m.direct.bx, m.direct.bv]
-    ps = [m.direct.ρ, m.direct.χ, m.direct.β, m.direct.Y1, m.direct.D12, m.direct.bx, m.direct.bv]
+    ps = [m.direct.ρ, m.direct.χ, m.direct.β, m.direct.Y1, m.direct.B2, m.direct.D12, m.direct.bx, m.direct.bv]
+    # ps = [m.direct.ρ, m.direct.χ, m.direct.β, m.direct.Y1, m.direct.D12, m.direct.bx, m.direct.bv]
+    # ps = [m.direct.ρ, m.direct.X, m.direct.Y1, m.direct.D12, m.direct.bx, m.direct.bv]
     
     !(m.direct.polar_param) && popfirst!(ps)
     # return filter(p -> length(p) !=0, ps)
@@ -123,6 +124,7 @@ function direct_to_explicit(ps::SystemlevelRENParams{T}) where T
    #  from contracting ren
     ϵ = ps.direct.ϵ
     ρ = ps.direct.ρ[1]
+    # X = ps.direct.X
     χ = ps.direct.χ
     β = ps.direct.β
 
